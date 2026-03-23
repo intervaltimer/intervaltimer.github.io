@@ -1,0 +1,11 @@
+{
+  "name": "Interval Timer",
+  "short_name": "Interval",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080010",
+  "theme_color": "#080010",
+  "icons": []
+}

@@ -1,0 +1,287 @@
+import { getWorkout, getOrCreateDefaultWorkout } from '../storage/workouts.js';
+import { TimerEngine } from '../timer/engine.js';
+import { navigateTo, ROUTES } from '../router.js';
+import { speak, beepLow, beepHigh } from '../audio/speech.js';
+
+class TimerPage extends HTMLElement {
+  constructor() {
+    super();
+    this.workout = null;
+    this.engine = null;
+    this.isRunning = false;
+    this._intervalId = null;
+    this._bgMode = null;
+    this._bgPhaseKey = null;
+  }
+
+  connectedCallback() {
+    this.classList.add('app-column');
+    this.#initWorkout();
+    this.#createEngine();
+    this.#render();
+    this.#updateUI();
+  }
+
+  disconnectedCallback() {
+    this.#stopInterval();
+  }
+
+  #initWorkout() {
+    const id = this.getAttribute('workout-id');
+    let workout = id ? getWorkout(id) : null;
+    if (!workout) {
+      workout = getOrCreateDefaultWorkout();
+      this.setAttribute('workout-id', workout.id);
+    }
+    this.workout = workout;
+  }
+
+  #createEngine() {
+    this.engine = TimerEngine.fromWorkout(this.workout, {
+      onPhaseChange: () => this.#updateUI(),
+      onTick: () => this.#updateUI(),
+      onSpeak: (text) => speak(text),
+      onBeepLow: () => beepLow(),
+      onBeepHigh: () => beepHigh(),
+    });
+  }
+
+  #render() {
+    this.innerHTML = `
+      <div class="app-row app-header-row">
+        <button class="back-link" id="btn-back-dashboard" aria-label="Back to dashboard">
+          <span class="icon-feather" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+          </span>
+          <span>Dashboard</span>
+        </button>
+      </div>
+      <h2 class="app-page-title app-page-title--center" id="timer-workout-title"></h2>
+      <div class="timer-main-display">
+        <div id="timer-phase-label" class="timer-phase-label"></div>
+        <div id="timer-time" class="timer-time"></div>
+        <div id="timer-coming-up-label" class="timer-coming-up-label"></div>
+        <div id="timer-next-phase" class="timer-next-phase"></div>
+      </div>
+      <div class="app-row app-row--center" id="timer-controls-row">
+        <button class="icon-button" id="btn-prev" aria-label="Previous phase">
+          <span class="icon-feather" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </span>
+        </button>
+        <button class="app-button" id="btn-play" aria-label="Play">
+          <span class="icon-feather" aria-hidden="true">
+            <svg id="icon-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg id="icon-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+          </span>
+        </button>
+        <button class="icon-button" id="btn-next" aria-label="Next phase">
+          <span class="icon-feather" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </span>
+        </button>
+      </div>
+      <div class="app-row app-row--center app-footer-row">
+        <button class="app-button" id="btn-customize">Customize</button>
+      </div>
+    `;
+
+    this._titleEl = this.querySelector('#timer-workout-title');
+    this._timeEl = this.querySelector('#timer-time');
+    this._phaseLabelEl = this.querySelector('#timer-phase-label');
+    this._comingUpLabelEl = this.querySelector('#timer-coming-up-label');
+    this._nextPhaseEl = this.querySelector('#timer-next-phase');
+    this._btnBackDashboard = this.querySelector('#btn-back-dashboard');
+    this._btnPrev = this.querySelector('#btn-prev');
+        if (this._btnBackDashboard) {
+          this._btnBackDashboard.addEventListener('click', () => {
+            navigateTo(ROUTES.DASHBOARD);
+          });
+        }
+
+    this._btnPlay = this.querySelector('#btn-play');
+    this._iconPlay = this.querySelector('#icon-play');
+    this._iconPause = this.querySelector('#icon-pause');
+    this._btnNext = this.querySelector('#btn-next');
+    this._btnCustomize = this.querySelector('#btn-customize');
+
+    this._btnPrev.addEventListener('click', () => {
+      this.engine.previousPhase();
+      this.#updateUI();
+    });
+
+    this._btnNext.addEventListener('click', () => {
+      this.engine.nextPhase();
+      this.#updateUI();
+    });
+
+    this._btnPlay.addEventListener('click', () => {
+      if (this.isRunning) {
+        this.#pause();
+      } else {
+        this.#play();
+      }
+    });
+
+    this._btnCustomize.addEventListener('click', () => {
+      if (this.workout) {
+        navigateTo(ROUTES.CUSTOMIZE, this.workout.id);
+      }
+    });
+  }
+
+  #play() {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    if (!this._intervalId) {
+      this._intervalId = window.setInterval(() => {
+        this.engine.tick();
+      }, 1000);
+    }
+    this.#updateUI();
+  }
+
+  #pause() {
+    if (!this.isRunning) return;
+    this.isRunning = false;
+    this.#stopInterval();
+    this.#updateUI();
+  }
+
+  #stopInterval() {
+    if (this._intervalId) {
+      clearInterval(this._intervalId);
+      this._intervalId = null;
+    }
+  }
+
+  #formatSeconds(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  #updateUI() {
+    if (!this.engine) return;
+    const phase = this.engine.getCurrentPhase();
+    const remaining = this.engine.remainingSeconds;
+    const nextPhase = this.engine.phases[this.engine.currentPhaseIndex + 1] || null;
+
+    if (this._titleEl && this.workout) {
+      this._titleEl.textContent = this.workout.title || 'Workout';
+    }
+
+    if (this._timeEl) {
+      this._timeEl.textContent = this.#formatSeconds(remaining);
+    }
+
+    if (this._phaseLabelEl) {
+      if (!phase) {
+        this._phaseLabelEl.textContent = '';
+      } else if (phase.kind === 'prepare') {
+        this._phaseLabelEl.textContent = 'Prepare';
+      } else if (phase.kind === 'exercise') {
+        this._phaseLabelEl.textContent = phase.title || 'Exercise';
+      } else if (phase.kind === 'rest') {
+        this._phaseLabelEl.textContent = 'Rest';
+      }
+    }
+
+    if (this._comingUpLabelEl && this._nextPhaseEl) {
+      if (!nextPhase) {
+        this._comingUpLabelEl.textContent = '';
+        this._nextPhaseEl.textContent = '';
+      } else {
+        this._comingUpLabelEl.textContent = 'Coming up…';
+        let label = '';
+        if (nextPhase.kind === 'rest') {
+          label = `Rest ${nextPhase.seconds ?? 0}s`;
+        } else if (nextPhase.kind === 'exercise') {
+          const title = nextPhase.title || 'Exercise';
+          label = `${title} ${nextPhase.seconds ?? 0}s`;
+        } else if (nextPhase.kind === 'prepare') {
+          label = `Prepare ${nextPhase.seconds ?? 0}s`;
+        }
+        this._nextPhaseEl.textContent = label;
+      }
+    }
+
+    if (this._btnPrev) {
+      this._btnPrev.disabled = this.engine.isFirstPhase();
+    }
+
+    if (this._btnNext) {
+      this._btnNext.disabled = this.engine.isLastPhase();
+    }
+
+    if (this._btnPlay) {
+      this._btnPlay.setAttribute('aria-label', this.isRunning ? 'Pause' : 'Play');
+    }
+
+    if (this._iconPlay && this._iconPause) {
+      if (this.isRunning) {
+        this._iconPlay.style.display = 'none';
+        this._iconPause.style.display = '';
+      } else {
+        this._iconPlay.style.display = '';
+        this._iconPause.style.display = 'none';
+      }
+    }
+
+    this.#updateBackground();
+  }
+
+  #updateBackground() {
+    const bg = document.querySelector('ambient-background');
+    if (!bg || !this.engine) return;
+
+    const phase = this.engine.getCurrentPhase();
+    let mode = 'idle';
+    let duration = null;
+
+    if (this.isRunning && phase) {
+      if (phase.kind === 'exercise') {
+        mode = 'exercise';
+        duration = phase.seconds ?? null;
+      } else if (phase.kind === 'rest') {
+        mode = 'rest';
+        duration = phase.seconds ?? null;
+      } else {
+        mode = 'idle';
+      }
+    } else {
+      mode = 'idle';
+    }
+
+    const phaseKey = phase ? `${phase.kind}:${this.engine.currentPhaseIndex}` : 'none';
+
+    if (this._bgMode === mode && this._bgPhaseKey === phaseKey) {
+      return;
+    }
+
+    this._bgMode = mode;
+    this._bgPhaseKey = phaseKey;
+
+    if (mode === 'idle') {
+      bg.setIdle();
+    } else if (mode === 'exercise') {
+      bg.setExercise(duration);
+    } else if (mode === 'rest') {
+      bg.setRest(duration);
+    }
+  }
+}
+
+customElements.define('timer-page', TimerPage);

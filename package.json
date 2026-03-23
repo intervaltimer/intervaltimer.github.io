@@ -1,0 +1,19 @@
+{
+  "name": "interval.github.io",
+  "version": "1.0.0",
+  "description": "None of the interval timers online quite matched was I needed exactly: auto save, easy workout configuration and voice over",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest",
+    "dev": "serve -l 4173 ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "serve": "^14.2.1",
+    "happy-dom": "^20.8.4",
+    "jsdom": "^29.0.1",
+    "vitest": "^1.6.0"
+  }
+}

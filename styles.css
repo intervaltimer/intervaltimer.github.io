@@ -1,0 +1,343 @@
+@font-face {
+  font-family: 'Bebas Neue';
+  src: url('./assets/fonts/BebasNeue-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Quicksand';
+  src: url('./assets/fonts/Quicksand-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg-color: #080010;
+  --bg-color-alt: #130020;
+  --text-color: #f9f3e6;
+  --accent-color: #f9f3e6;
+  --border-radius: 8px;
+  --spacing: 12px;
+  --transition-fast: 120ms ease-out;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Quicksand', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top left, #180030, var(--bg-color));
+  color: var(--text-color);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background: transparent;
+  position: relative;
+}
+
+.app-shell__inner {
+  width: 100%;
+  max-width: 480px;
+  padding: 24px 16px 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell__inner > main {
+  flex: 1;
+  min-height: 0;
+}
+
+.app-shell--no-header header {
+  display: none;
+}
+
+.app-shell--fixed {
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.landing-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 60vh;
+  justify-content: space-between;
+}
+
+.landing-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  padding: 32px 0;
+}
+
+.landing-tagline {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.landing-footer {
+  margin-top: 24px;
+  font-size: 0.8rem;
+  opacity: 0.8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-title {
+  font-size: 2.54rem;
+  font-weight: 600;
+  margin: 0 0 16px;
+  font-family: 'Bebas Neue', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.app-page-title {
+  font-size: 2rem;
+  margin: 0 0 16px;
+  font-family: 'Bebas Neue', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.app-button,
+.icon-button {
+.app-page-title--center {
+  text-align: center;
+}
+  appearance: none;
+  border: 1px solid var(--accent-color);
+  background: transparent;
+  color: var(--accent-color);
+.app-header-row {
+  margin-bottom: 8px;
+}
+  border-radius: var(--border-radius);
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-button:active,
+.icon-button:active {
+  border-color: var(--bg-color);
+  background-color: var(--bg-color-alt);
+}
+
+.back-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--accent-color);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-link:active {
+  background: transparent;
+}
+.app-button[disabled],
+.icon-button[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.app-row {
+  display: flex;
+  gap: var(--spacing);
+  align-items: center;
+}
+
+.app-row--space-between {
+  justify-content: space-between;
+}
+
+.app-row--center {
+  justify-content: center;
+}
+
+.app-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+}
+
+.card {
+  border: 1px solid rgba(249, 243, 230, 0.24);
+  border-radius: var(--border-radius);
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.card-title {
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+.card-subtitle {
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.card .app-row--space-between {
+  margin-top: 8px;
+}
+
+input.app-input {
+  width: 100%;
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(249, 243, 230, 0.3);
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-color);
+}
+
+input.app-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.phases-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+}
+
+.phase-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.9fr) auto;
+  gap: var(--spacing);
+  align-items: stretch;
+}
+
+.phase-row--rest {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.phase-row .phase-main,
+.phase-row .phase-secondary {
+  width: 100%;
+}
+
+.phase-row .phase-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  align-self: stretch;
+  position: relative;
+}
+
+.phase-menu-button {
+  border: none;
+  background: transparent;
+  padding: 0 4px;
+  color: var(--accent-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+.phase-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: var(--border-radius);
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+
+.phase-menu--open {
+  display: block;
+}
+
+.phase-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--accent-color);
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+}
+
+.phase-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.phase-menu-label {
+  flex: 1;
+}
+
+.app-footer-row {
+  margin-top: 20px;
+}
+
+.timer-main-display {
+  text-align: center;
+  margin: 24px 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-time {
+  font-size: 2.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-phase-label {
+  font-size: 2rem;
+  font-family: 'Bebas Neue', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 400;
+  margin-bottom: 4px;
+}
+
+.timer-coming-up-label {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.timer-next-phase {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.icon-feather {
+  display: inline-flex;
+}
+
+.icon-feather svg {
+  width: 18px;
+  height: 18px;
+}
