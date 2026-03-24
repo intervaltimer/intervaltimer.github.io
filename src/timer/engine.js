@@ -72,7 +72,11 @@ export class TimerEngine {
     // so they align with the displayed remaining time.
     if (nextPhase && nextPhase.kind === 'exercise') {
       if (this.remainingSeconds === 5 && this.callbacks.onSpeak) {
-        this.callbacks.onSpeak(nextPhase.title || 'Exercise');
+        const totalSeconds = phase.seconds ?? 0;
+        // Say "Get ready" before the low beeps, except for ultra-short rests.
+        if (!(phase.kind === 'rest' && totalSeconds < 5)) {
+          this.callbacks.onSpeak('Get ready');
+        }
       }
       if (this.remainingSeconds === 3 || this.remainingSeconds === 2 || this.remainingSeconds === 1) {
         if (this.callbacks.onBeepLow) this.callbacks.onBeepLow();
@@ -137,8 +141,14 @@ export class TimerEngine {
     if (!nextPhase || nextPhase.kind !== 'exercise') return;
 
     if (phase.kind === 'prepare' || phase.kind === 'rest') {
-      const title = nextPhase.title || 'Exercise';
       const seconds = phase.seconds ?? 0;
+
+      // Skip "Coming up" if this is a very short rest.
+      if (phase.kind === 'rest' && seconds < 8) {
+        return;
+      }
+
+      const title = nextPhase.title || 'Exercise';
       this.callbacks.onSpeak(`Coming up, ${title} in ${seconds} seconds`);
     }
   }
