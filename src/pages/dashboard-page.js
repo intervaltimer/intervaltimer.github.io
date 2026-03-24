@@ -2,9 +2,19 @@ import { loadWorkouts, deleteWorkout, summarizeWorkout, upsertWorkout } from '..
 import { navigateTo, ROUTES } from '../router.js';
 
 class DashboardPage extends HTMLElement {
+  constructor() {
+    super();
+    this._onDocumentClick = this.#handleDocumentClick.bind(this);
+  }
+
   connectedCallback() {
     this.classList.add('app-column');
+    document.addEventListener('click', this._onDocumentClick);
     this.render();
+  }
+
+  disconnectedCallback() {
+    document.removeEventListener('click', this._onDocumentClick);
   }
 
   render() {
@@ -28,13 +38,20 @@ class DashboardPage extends HTMLElement {
 
     workouts.forEach((w) => {
       const summary = summarizeWorkout(w);
-      const card = document.createElement('div');
-      card.className = 'card';
+      const card = document.createElement('button');
+      card.className = 'card dashboard-card';
+      card.type = 'button';
+      card.addEventListener('click', () => {
+        navigateTo(ROUTES.TIMER, w.id);
+      });
+
+      const content = document.createElement('div');
+      content.className = 'dashboard-card-main';
 
       const heading = document.createElement('div');
       heading.className = 'card-title';
       heading.textContent = w.title || 'Untitled workout';
-      card.appendChild(heading);
+      content.appendChild(heading);
 
       const subtitle = document.createElement('div');
       subtitle.className = 'card-subtitle';
@@ -44,22 +61,64 @@ class DashboardPage extends HTMLElement {
       const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
       subtitle.textContent = `${namesText} 
 Total: ${timeText}`;
-      card.appendChild(subtitle);
+      content.appendChild(subtitle);
+
+      card.appendChild(content);
 
       const actions = document.createElement('div');
-      actions.className = 'app-row app-row--space-between';
+      actions.className = 'dashboard-card-actions';
 
-      const openBtn = document.createElement('button');
-      openBtn.className = 'app-button';
-      openBtn.textContent = 'Open';
-      openBtn.addEventListener('click', () => {
-        navigateTo(ROUTES.TIMER, w.id);
+      const menuButton = document.createElement('button');
+      menuButton.type = 'button';
+      menuButton.className = 'dashboard-card-menu-button';
+      menuButton.innerHTML = `
+        <span class="icon-feather" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="5" r="1"></circle>
+            <circle cx="12" cy="12" r="1"></circle>
+            <circle cx="12" cy="19" r="1"></circle>
+          </svg>
+        </span>
+      `;
+
+      const menu = document.createElement('div');
+      menu.className = 'dashboard-card-menu';
+
+      const shareItem = document.createElement('button');
+      shareItem.type = 'button';
+      shareItem.className = 'dashboard-card-menu-item';
+      shareItem.textContent = 'Share';
+      shareItem.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        try {
+          const payload = JSON.stringify({ title: w.title, phases: w.phases || [] });
+          const encoded = encodeURIComponent(payload);
+          const url = `${window.location.origin}${window.location.pathname}?w=${encoded}#/timer`;
+
+          if (navigator.share) {
+            await navigator.share({ title: w.title || 'Workout', url });
+          } else if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(url);
+            // eslint-disable-next-line no-alert
+            alert('Share link copied to clipboard');
+          } else {
+            // eslint-disable-next-line no-alert
+            alert(url);
+          }
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to create share link', e);
+        }
       });
 
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'app-button';
-      deleteBtn.textContent = 'Delete';
-      deleteBtn.addEventListener('click', () => {
+      menu.appendChild(shareItem);
+
+      const deleteItem = document.createElement('button');
+      deleteItem.type = 'button';
+      deleteItem.className = 'dashboard-card-menu-item';
+      deleteItem.textContent = 'Delete';
+      deleteItem.addEventListener('click', (event) => {
+        event.stopPropagation();
         deleteWorkout(w.id);
         const remaining = loadWorkouts();
         if (!remaining.length) {
@@ -69,8 +128,19 @@ Total: ${timeText}`;
         }
       });
 
-      actions.appendChild(openBtn);
-      actions.appendChild(deleteBtn);
+      menu.appendChild(deleteItem);
+
+      menuButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const isOpen = menu.classList.contains('dashboard-card-menu--open');
+        this.#closeAllMenus();
+        if (!isOpen) {
+          menu.classList.add('dashboard-card-menu--open');
+        }
+      });
+
+      actions.appendChild(menuButton);
+      actions.appendChild(menu);
       card.appendChild(actions);
 
       list.appendChild(card);
@@ -99,6 +169,20 @@ Total: ${timeText}`;
 
     actionsRow.appendChild(addBtn);
     this.appendChild(actionsRow);
+  }
+
+  #closeAllMenus() {
+    const open = this.querySelectorAll('.dashboard-card-menu.dashboard-card-menu--open');
+    open.forEach((el) => el.classList.remove('dashboard-card-menu--open'));
+  }
+
+  #handleDocumentClick(event) {
+    const target = event.target;
+    if (!target) return;
+    if (target.closest('.dashboard-card-menu') || target.closest('.dashboard-card-menu-button')) {
+      return;
+    }
+    this.#closeAllMenus();
   }
 }
 

@@ -60,10 +60,50 @@ export function getOrCreateDefaultWorkout() {
   saveWorkouts(workouts);
   return defaultWorkout;
 }
+export function expandWorkoutPhases(workout) {
+  const phases = Array.isArray(workout && workout.phases) ? workout.phases : [];
+
+  // Expand groups into repeated child phases based on the `series` value.
+  const expandedPhases = [];
+  for (let i = 0; i < phases.length; i += 1) {
+    const phase = phases[i];
+    if (!phase) continue;
+
+    if (phase.kind === 'group') {
+      const rawSeries =
+        typeof phase.series === 'number' ? phase.series : parseInt(phase.series, 10);
+      const series = Number.isFinite(rawSeries) && rawSeries > 0 ? rawSeries : 1;
+
+      const children = [];
+      let j = i + 1;
+      while (j < phases.length) {
+        const child = phases[j];
+        if (!child || child.kind === 'group' || child.ungrouped) break;
+        children.push(child);
+        j += 1;
+      }
+
+      for (let s = 0; s < series; s += 1) {
+        for (const child of children) {
+          expandedPhases.push({ ...child });
+        }
+      }
+
+      i = j - 1;
+      continue;
+    }
+
+    expandedPhases.push({ ...phase });
+  }
+
+  return expandedPhases;
+}
 
 export function summarizeWorkout(workout) {
+  const expandedPhases = expandWorkoutPhases(workout);
+
   const counts = new Map();
-  workout.phases
+  expandedPhases
     .filter((p) => p.kind === 'exercise')
     .forEach((p) => {
       const title = p.title || 'Exercise';
@@ -71,7 +111,7 @@ export function summarizeWorkout(workout) {
     });
 
   const names = Array.from(counts.entries()).map(([title, count]) => `${title} ${count}x`);
-  const totalSeconds = workout.phases.reduce((sum, p) => sum + (p.seconds || 0), 0);
+  const totalSeconds = expandedPhases.reduce((sum, p) => sum + (p.seconds || 0), 0);
   return {
     names,
     totalSeconds,

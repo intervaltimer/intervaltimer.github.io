@@ -60,14 +60,18 @@ export function attachRouter(appRoot) {
     }
 
     if (page === ROUTES.TIMER) {
+      const params = new URLSearchParams(window.location.search || '');
+      const hasShared = !!params.get('w');
       let id = workoutId;
-      if (!id) {
+      if (!id && !hasShared) {
         const workout = getOrCreateDefaultWorkout();
         id = workout.id;
         navigateTo(ROUTES.TIMER, id);
       }
       const el = document.createElement('timer-page');
-      el.setAttribute('workout-id', id);
+      if (id) {
+        el.setAttribute('workout-id', id);
+      }
       appRoot.setPage(el);
       return;
     }

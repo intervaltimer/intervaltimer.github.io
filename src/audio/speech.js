@@ -1,4 +1,5 @@
 let audioContext = null;
+let speechWarmed = false;
 
 function getAudioContext() {
   if (typeof window === 'undefined') return null;
@@ -19,6 +20,30 @@ export function speak(text) {
   }
 }
 
+export function warmUpSpeech() {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    return Promise.resolve();
+  }
+
+  if (speechWarmed) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const utterance = new SpeechSynthesisUtterance(' ');
+    utterance.volume = 0;
+    utterance.onend = () => {
+      speechWarmed = true;
+      resolve();
+    };
+    utterance.onerror = () => {
+      speechWarmed = true;
+      resolve();
+    };
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
 function playTone(frequency, durationMs = 180) {
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -28,7 +53,7 @@ function playTone(frequency, durationMs = 180) {
   osc.frequency.value = frequency;
   osc.connect(gain);
   gain.connect(ctx.destination);
-  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+  gain.gain.setValueAtTime(1.0, ctx.currentTime);
   osc.start();
   osc.stop(ctx.currentTime + durationMs / 1000);
 }

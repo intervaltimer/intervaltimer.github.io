@@ -1,7 +1,7 @@
-import { getWorkout, getOrCreateDefaultWorkout } from '../storage/workouts.js';
+import { getWorkout, getOrCreateDefaultWorkout, upsertWorkout } from '../storage/workouts.js';
 import { TimerEngine } from '../timer/engine.js';
 import { navigateTo, ROUTES } from '../router.js';
-import { speak, beepLow, beepHigh } from '../audio/speech.js';
+import { speak, beepLow, beepHigh, warmUpSpeech } from '../audio/speech.js';
 
 class TimerPage extends HTMLElement {
   constructor() {
@@ -9,6 +9,7 @@ class TimerPage extends HTMLElement {
     this.workout = null;
     this.engine = null;
     this.isRunning = false;
+    this.isPreparing = false;
     this._intervalId = null;
     this._bgMode = null;
     this._bgPhaseKey = null;
@@ -27,6 +28,38 @@ class TimerPage extends HTMLElement {
   }
 
   #initWorkout() {
+    // First, check for a shared workout encoded in the URL search params.
+    const params = new URLSearchParams(window.location.search || '');
+    const shared = params.get('w');
+    if (shared) {
+      try {
+        const parsed = JSON.parse(shared);
+        const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : `shared_${Date.now()}`;
+        const workout = {
+          id,
+          title: parsed && typeof parsed.title === 'string' ? parsed.title : 'Shared Workout',
+          phases: Array.isArray(parsed && parsed.phases) ? parsed.phases : [],
+        };
+        upsertWorkout(workout);
+
+        // Clean the URL so reloading doesn't keep re-importing the same workout.
+        params.delete('w');
+        const newSearch = params.toString();
+        const newUrl = `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}${window.location.hash}`;
+        window.history.replaceState(null, '', newUrl);
+
+        this.workout = workout;
+        this.setAttribute('workout-id', workout.id);
+        return;
+      } catch (e) {
+        // If parsing fails, fall back to normal loading.
+        // eslint-disable-next-line no-console
+        console.error('Failed to load shared workout from URL', e);
+      }
+    }
+
     const id = this.getAttribute('workout-id');
     let workout = id ? getWorkout(id) : null;
     if (!workout) {
@@ -40,7 +73,11 @@ class TimerPage extends HTMLElement {
     this.engine = TimerEngine.fromWorkout(this.workout, {
       onPhaseChange: () => this.#updateUI(),
       onTick: () => this.#updateUI(),
-      onSpeak: (text) => speak(text),
+      onSpeak: (text) => {
+        if (this.isRunning || this.isPreparing) {
+          speak(text);
+        }
+      },
       onBeepLow: () => beepLow(),
       onBeepHigh: () => beepHigh(),
     });
@@ -65,6 +102,8 @@ class TimerPage extends HTMLElement {
         <div id="timer-time" class="timer-time"></div>
         <div id="timer-coming-up-label" class="timer-coming-up-label"></div>
         <div id="timer-next-phase" class="timer-next-phase"></div>
+          <div id="timer-remaining-label" class="timer-remaining-label"></div>
+          <div id="timer-remaining-summary" class="timer-remaining-summary"></div>
       </div>
       <div class="app-row app-row--center" id="timer-controls-row">
         <button class="icon-button" id="btn-prev" aria-label="Previous phase">
@@ -83,6 +122,7 @@ class TimerPage extends HTMLElement {
               <rect x="6" y="4" width="4" height="16"></rect>
               <rect x="14" y="4" width="4" height="16"></rect>
             </svg>
+            <span id="icon-spinner" class="play-spinner" style="display: none;"></span>
           </span>
         </button>
         <button class="icon-button" id="btn-next" aria-label="Next phase">
@@ -103,6 +143,8 @@ class TimerPage extends HTMLElement {
     this._phaseLabelEl = this.querySelector('#timer-phase-label');
     this._comingUpLabelEl = this.querySelector('#timer-coming-up-label');
     this._nextPhaseEl = this.querySelector('#timer-next-phase');
+    this._remainingSummaryEl = this.querySelector('#timer-remaining-summary');
+      this._remainingLabelEl = this.querySelector('#timer-remaining-label');
     this._btnBackDashboard = this.querySelector('#btn-back-dashboard');
     this._btnPrev = this.querySelector('#btn-prev');
         if (this._btnBackDashboard) {
@@ -114,6 +156,7 @@ class TimerPage extends HTMLElement {
     this._btnPlay = this.querySelector('#btn-play');
     this._iconPlay = this.querySelector('#icon-play');
     this._iconPause = this.querySelector('#icon-pause');
+    this._iconSpinner = this.querySelector('#icon-spinner');
     this._btnNext = this.querySelector('#btn-next');
     this._btnCustomize = this.querySelector('#btn-customize');
 
@@ -127,11 +170,11 @@ class TimerPage extends HTMLElement {
       this.#updateUI();
     });
 
-    this._btnPlay.addEventListener('click', () => {
+    this._btnPlay.addEventListener('click', async () => {
       if (this.isRunning) {
         this.#pause();
       } else {
-        this.#play();
+        await this.#play();
       }
     });
 
@@ -142,9 +185,25 @@ class TimerPage extends HTMLElement {
     });
   }
 
-  #play() {
-    if (this.isRunning) return;
-    this.isRunning = true;
+  async #play() {
+    if (this.isRunning || this.isPreparing) return;
+
+    const isFirstStart = this.engine && !this.engine._hasStarted;
+
+    if (isFirstStart) {
+      this.isPreparing = true;
+      this.#updateUI();
+      try {
+        await warmUpSpeech();
+      } finally {
+        this.isPreparing = false;
+      }
+      if (!this.engine) return;
+      this.isRunning = true;
+      this.engine.start();
+    } else {
+      this.isRunning = true;
+    }
     if (!this._intervalId) {
       this._intervalId = window.setInterval(() => {
         this.engine.tick();
@@ -210,11 +269,24 @@ class TimerPage extends HTMLElement {
           label = `Rest ${nextPhase.seconds ?? 0}s`;
         } else if (nextPhase.kind === 'exercise') {
           const title = nextPhase.title || 'Exercise';
-          label = `${title} ${nextPhase.seconds ?? 0}s`;
+          label = `${title} for ${nextPhase.seconds ?? 0}s`;
         } else if (nextPhase.kind === 'prepare') {
           label = `Prepare ${nextPhase.seconds ?? 0}s`;
         }
         this._nextPhaseEl.textContent = label;
+      }
+    }
+
+    if (this._remainingSummaryEl) {
+      if (this._remainingLabelEl && this._remainingSummaryEl) {
+        const summaryText = this.#getRemainingSummary();
+        if (summaryText) {
+          this._remainingLabelEl.textContent = 'Remaining…';
+          this._remainingSummaryEl.textContent = summaryText;
+        } else {
+          this._remainingLabelEl.textContent = '';
+          this._remainingSummaryEl.textContent = '';
+        }
       }
     }
 
@@ -227,16 +299,24 @@ class TimerPage extends HTMLElement {
     }
 
     if (this._btnPlay) {
-      this._btnPlay.setAttribute('aria-label', this.isRunning ? 'Pause' : 'Play');
+      const label = this.isPreparing ? 'Loading' : this.isRunning ? 'Pause' : 'Play';
+      this._btnPlay.setAttribute('aria-label', label);
+      this._btnPlay.disabled = this.isPreparing;
     }
 
-    if (this._iconPlay && this._iconPause) {
-      if (this.isRunning) {
+    if (this._iconPlay && this._iconPause && this._iconSpinner) {
+      if (this.isPreparing) {
+        this._iconPlay.style.display = 'none';
+        this._iconPause.style.display = 'none';
+        this._iconSpinner.style.display = '';
+      } else if (this.isRunning) {
         this._iconPlay.style.display = 'none';
         this._iconPause.style.display = '';
+        this._iconSpinner.style.display = 'none';
       } else {
         this._iconPlay.style.display = '';
         this._iconPause.style.display = 'none';
+        this._iconSpinner.style.display = 'none';
       }
     }
 
@@ -281,6 +361,49 @@ class TimerPage extends HTMLElement {
     } else if (mode === 'rest') {
       bg.setRest(duration);
     }
+  }
+
+  #getRemainingSummary() {
+    if (!this.engine) return '';
+
+    const phases = this.engine.phases || [];
+    const currentIndex = this.engine.currentPhaseIndex ?? 0;
+
+    if (!phases.length || currentIndex >= phases.length) {
+      return '';
+    }
+
+    let remainingSeconds = this.engine.remainingSeconds ?? 0;
+    let exercises = 0;
+    let rests = 0;
+
+    const currentPhase = this.engine.getCurrentPhase();
+    if (currentPhase) {
+      if (currentPhase.kind === 'exercise') exercises += 1;
+      if (currentPhase.kind === 'rest') rests += 1;
+    }
+
+    for (let i = currentIndex + 1; i < phases.length; i += 1) {
+      const p = phases[i];
+      if (!p) continue;
+      remainingSeconds += p.seconds ?? 0;
+      if (p.kind === 'exercise') exercises += 1;
+      if (p.kind === 'rest') rests += 1;
+    }
+
+    if (remainingSeconds <= 0) return '';
+
+    const parts = [];
+    if (exercises > 0) {
+      parts.push(`${exercises} exercise${exercises === 1 ? '' : 's'}`);
+    }
+    if (rests > 0) {
+      parts.push(`${rests} rest${rests === 1 ? '' : 's'}`);
+    }
+
+    const timeText = this.#formatSeconds(remainingSeconds);
+    const phasesText = parts.length ? parts.join(' • ') + ' • ' : '';
+    return `${phasesText}${timeText}`;
   }
 }
 

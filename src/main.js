@@ -40,6 +40,7 @@ class AppRoot extends HTMLElement {
   setPage(element) {
     if (!this._pageEl) return;
     this._pageEl.innerHTML = '';
+    element.classList.add('page-transition');
     this._pageEl.appendChild(element);
   }
 }

@@ -51,6 +51,7 @@ class CustomizePage extends HTMLElement {
         <div class="app-row app-row--center app-footer-row">
           <button class="app-button" id="btn-add-exercise">+ exercise</button>
           <button class="app-button" id="btn-add-rest">+ rest</button>
+          <button class="app-button" id="btn-add-group">+ group</button>
         </div>
         <div class="app-row app-row--center app-footer-row">
           <button class="app-button" id="btn-back">Back to timer</button>
@@ -64,6 +65,7 @@ class CustomizePage extends HTMLElement {
     this._btnBackTop = this.querySelector('#btn-back-top');
     this._btnAddExercise = this.querySelector('#btn-add-exercise');
     this._btnAddRest = this.querySelector('#btn-add-rest');
+    this._btnAddGroup = this.querySelector('#btn-add-group');
     this._btnBack = this.querySelector('#btn-back');
     if (this._btnBackTop) {
       this._btnBackTop.addEventListener('click', () => {
@@ -81,14 +83,23 @@ class CustomizePage extends HTMLElement {
     });
 
     this._btnAddExercise.addEventListener('click', () => {
-      this.workout.phases.push({ kind: 'exercise', title: 'Work', seconds: 20 });
+      const phases = this.workout.phases || [];
+      phases.push({ kind: 'exercise', title: 'Work', seconds: 20, ungrouped: true });
       this.#save();
       this.#renderPhases();
       this.#renderSummary();
     });
 
     this._btnAddRest.addEventListener('click', () => {
-      this.workout.phases.push({ kind: 'rest', seconds: 20 });
+      const phases = this.workout.phases || [];
+      phases.push({ kind: 'rest', seconds: 20, ungrouped: true });
+      this.#save();
+      this.#renderPhases();
+      this.#renderSummary();
+    });
+
+    this._btnAddGroup.addEventListener('click', () => {
+      this.workout.phases.push({ kind: 'group', series: 1 });
       this.#save();
       this.#renderPhases();
       this.#renderSummary();
@@ -104,10 +115,123 @@ class CustomizePage extends HTMLElement {
     if (!this._phasesContainer) return;
     this._phasesContainer.innerHTML = '';
 
-    this.workout.phases.forEach((phase, index) => {
+    const phases = this.workout.phases || [];
+
+    for (let index = 0; index < phases.length; index += 1) {
+      const phase = phases[index];
+
+      // Group: create one card and include all following non-group phases in it.
+      if (phase.kind === 'group') {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const groupRow = document.createElement('div');
+        groupRow.className = 'phase-row phase-row--group';
+
+        const seriesCol = document.createElement('div');
+        seriesCol.className = 'phase-main phase-main--series';
+        const seriesWrapper = document.createElement('div');
+        seriesWrapper.className = 'series-field';
+        const seriesInput = document.createElement('input');
+        seriesInput.className = 'app-input series-input';
+        seriesInput.type = 'number';
+        seriesInput.min = '1';
+        seriesInput.placeholder = 'Series';
+        seriesInput.value = String(phase.series || '');
+        seriesInput.addEventListener('input', () => {
+          const value = Number(seriesInput.value) || 0;
+          phase.series = value > 0 ? value : 1;
+          this.#save();
+          this.#renderSummary();
+        });
+        const seriesSuffix = document.createElement('span');
+        seriesSuffix.className = 'series-suffix';
+        seriesSuffix.textContent = 'series';
+        seriesWrapper.appendChild(seriesInput);
+        seriesWrapper.appendChild(seriesSuffix);
+        seriesCol.appendChild(seriesWrapper);
+
+        const groupActionsCol = this.#createActionsMenu(phase, index);
+        groupRow.appendChild(seriesCol);
+        groupRow.appendChild(groupActionsCol);
+        card.appendChild(groupRow);
+
+        const childrenContainer = document.createElement('div');
+        childrenContainer.className = 'group-children';
+
+        // Add all child phases (until next group) into the same card.
+        let childIndex = index + 1;
+        while (childIndex < phases.length && phases[childIndex].kind !== 'group' && !phases[childIndex].ungrouped) {
+          const childPhase = phases[childIndex];
+          const childCard = document.createElement('div');
+          childCard.className = 'card card--inner-group';
+          const row = document.createElement('div');
+          row.className = 'phase-row' + (childPhase.kind === 'rest' ? ' phase-row--rest' : '');
+
+          if (childPhase.kind === 'exercise') {
+            const titleCol = document.createElement('div');
+            titleCol.className = 'phase-main';
+            const titleInput = document.createElement('input');
+            titleInput.className = 'app-input';
+            titleInput.placeholder = 'Exercise title';
+            titleInput.value = childPhase.title || '';
+            titleInput.addEventListener('input', () => {
+              childPhase.title = titleInput.value;
+              this.#save();
+              this.#renderSummary();
+            });
+            titleCol.appendChild(titleInput);
+
+            const secondsCol = document.createElement('div');
+            secondsCol.className = 'phase-secondary';
+            const secondsField = this.#createSecondsField(childPhase);
+            secondsCol.appendChild(secondsField);
+
+            const actionsCol = this.#createActionsMenu(childPhase, childIndex);
+
+            row.appendChild(titleCol);
+            row.appendChild(secondsCol);
+            row.appendChild(actionsCol);
+          } else {
+            // Rest inside group.
+            const labelCol = document.createElement('div');
+            labelCol.className = 'phase-main';
+            const restInput = document.createElement('input');
+            restInput.className = 'app-input';
+            restInput.value = 'Rest';
+            restInput.disabled = true;
+            labelCol.appendChild(restInput);
+
+            const secondsCol = document.createElement('div');
+            secondsCol.className = 'phase-secondary';
+            const secondsField = this.#createSecondsField(childPhase);
+            secondsCol.appendChild(secondsField);
+
+            const actionsCol = this.#createActionsMenu(childPhase, childIndex);
+
+            row.appendChild(labelCol);
+            row.appendChild(secondsCol);
+            row.appendChild(actionsCol);
+          }
+
+          childCard.appendChild(row);
+          childrenContainer.appendChild(childCard);
+          childIndex += 1;
+        }
+
+        if (childrenContainer.children.length > 0) {
+          card.appendChild(childrenContainer);
+        }
+
+        this._phasesContainer.appendChild(card);
+        // Skip over children we already rendered.
+        index = childIndex - 1;
+        continue;
+      }
+
+      // Non-group phase outside of any group: its own card.
       const card = document.createElement('div');
       card.className = 'card';
-
       const row = document.createElement('div');
       row.className = 'phase-row' + (phase.kind === 'rest' ? ' phase-row--rest' : '');
 
@@ -121,21 +245,14 @@ class CustomizePage extends HTMLElement {
         titleInput.addEventListener('input', () => {
           phase.title = titleInput.value;
           this.#save();
+          this.#renderSummary();
         });
         titleCol.appendChild(titleInput);
 
         const secondsCol = document.createElement('div');
         secondsCol.className = 'phase-secondary';
-        const secondsInput = document.createElement('input');
-        secondsInput.className = 'app-input';
-        secondsInput.type = 'number';
-        secondsInput.min = '1';
-        secondsInput.value = String(phase.seconds || 0);
-        secondsInput.addEventListener('input', () => {
-          phase.seconds = Number(secondsInput.value) || 0;
-          this.#save();
-        });
-        secondsCol.appendChild(secondsInput);
+        const secondsField = this.#createSecondsField(phase);
+        secondsCol.appendChild(secondsField);
 
         const actionsCol = this.#createActionsMenu(phase, index);
 
@@ -143,30 +260,56 @@ class CustomizePage extends HTMLElement {
         row.appendChild(secondsCol);
         row.appendChild(actionsCol);
       } else {
+        // Rest outside of any group.
+        const labelCol = document.createElement('div');
+        labelCol.className = 'phase-main';
+        const restInput = document.createElement('input');
+        restInput.className = 'app-input';
+        restInput.value = 'Rest';
+        restInput.disabled = true;
+        labelCol.appendChild(restInput);
+
         const secondsCol = document.createElement('div');
         secondsCol.className = 'phase-secondary';
-        const secondsInput = document.createElement('input');
-        secondsInput.className = 'app-input';
-        secondsInput.type = 'number';
-        secondsInput.min = '1';
-        secondsInput.value = String(phase.seconds || 0);
-        secondsInput.addEventListener('input', () => {
-          phase.seconds = Number(secondsInput.value) || 0;
-          this.#save();
-        });
-        secondsCol.appendChild(secondsInput);
+        const secondsField = this.#createSecondsField(phase);
+        secondsCol.appendChild(secondsField);
 
         const actionsCol = this.#createActionsMenu(phase, index);
 
+        row.appendChild(labelCol);
         row.appendChild(secondsCol);
         row.appendChild(actionsCol);
       }
 
       card.appendChild(row);
       this._phasesContainer.appendChild(card);
-    });
+    }
 
     this.#renderSummary();
+  }
+
+  #createSecondsField(phase) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'seconds-field';
+
+    const input = document.createElement('input');
+    input.className = 'app-input seconds-input';
+    input.type = 'number';
+    input.min = '1';
+    input.value = String(phase.seconds || 0);
+    input.addEventListener('input', () => {
+      phase.seconds = Number(input.value) || 0;
+      this.#save();
+      this.#renderSummary();
+    });
+
+    const suffix = document.createElement('span');
+    suffix.className = 'seconds-suffix';
+    suffix.textContent = 's';
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(suffix);
+    return wrapper;
   }
 
   #closeAllMenus() {
@@ -224,6 +367,12 @@ class CustomizePage extends HTMLElement {
         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
       </svg>
     `;
+    const plusIcon = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+    `;
     const trashIcon = `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="3 6 5 6 21 6"></polyline>
@@ -246,6 +395,30 @@ class CustomizePage extends HTMLElement {
       </svg>
     `;
 
+    if (phase.kind === 'group') {
+      addItem('Add exercise', plusIcon, () => {
+        const phases = this.workout.phases;
+        let insertIndex = index + 1;
+        while (insertIndex < phases.length && phases[insertIndex].kind !== 'group') {
+          insertIndex += 1;
+        }
+        phases.splice(insertIndex, 0, { kind: 'exercise', title: 'Work', seconds: 20 });
+        this.#save();
+        this.#renderPhases();
+      }, 'phase-menu-item--add-exercise');
+
+      addItem('Add rest', plusIcon, () => {
+        const phases = this.workout.phases;
+        let insertIndex = index + 1;
+        while (insertIndex < phases.length && phases[insertIndex].kind !== 'group') {
+          insertIndex += 1;
+        }
+        phases.splice(insertIndex, 0, { kind: 'rest', seconds: 20 });
+        this.#save();
+        this.#renderPhases();
+      }, 'phase-menu-item--add-rest');
+    }
+
     addItem('Duplicate', copyIcon, () => {
       this.workout.phases.push({ ...phase });
       this.#save();
@@ -255,6 +428,11 @@ class CustomizePage extends HTMLElement {
     addItem('Move up', arrowUpIcon, () => {
       if (index <= 0) return;
       const phases = this.workout.phases;
+
+      const { start } = this.#getGroupBoundsForIndex(index);
+      const minIndex = start >= 0 ? start + 1 : 0;
+      if (index <= minIndex) return;
+
       const [p] = phases.splice(index, 1);
       phases.splice(index - 1, 0, p);
       this.#save();
@@ -264,6 +442,11 @@ class CustomizePage extends HTMLElement {
     addItem('Move down', arrowDownIcon, () => {
       const phases = this.workout.phases;
       if (index >= phases.length - 1) return;
+
+      const { endExclusive } = this.#getGroupBoundsForIndex(index);
+      const maxIndex = endExclusive - 1;
+      if (index >= maxIndex) return;
+
       const [p] = phases.splice(index, 1);
       phases.splice(index + 1, 0, p);
       this.#save();
@@ -294,7 +477,7 @@ class CustomizePage extends HTMLElement {
     upsertWorkout(this.workout);
   }
 
-   #renderSummary() {
+  #renderSummary() {
     if (!this._summaryEl || !this.workout) return;
     const summary = summarizeWorkout(this.workout);
     const namesText = summary.names.join(', ') || 'No exercises yet';
@@ -303,6 +486,32 @@ class CustomizePage extends HTMLElement {
     const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     this._summaryEl.textContent = `${namesText} 
 Total: ${timeText}`;
+  }
+
+  #getGroupBoundsForIndex(index) {
+    const phases = this.workout?.phases || [];
+    if (index < 0 || index >= phases.length) {
+      return { start: -1, endExclusive: phases.length };
+    }
+
+    // For exercises/rest, find the nearest group marker before and after.
+    let start = -1;
+    for (let i = index; i >= 0; i -= 1) {
+      if (phases[i].kind === 'group') {
+        start = i;
+        break;
+      }
+    }
+
+    let endExclusive = phases.length;
+    for (let i = index + 1; i < phases.length; i += 1) {
+      if (phases[i].kind === 'group') {
+        endExclusive = i;
+        break;
+      }
+    }
+
+    return { start, endExclusive };
   }
 }
 

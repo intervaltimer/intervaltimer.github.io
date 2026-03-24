@@ -1,3 +1,5 @@
+import { expandWorkoutPhases } from '../storage/workouts.js';
+
 export class TimerEngine {
   constructor(phases, callbacks = {}) {
     this.phases = phases;
@@ -9,7 +11,8 @@ export class TimerEngine {
 
   static fromWorkout(workout, callbacks = {}) {
     const preparePhase = { kind: 'prepare', seconds: 10 };
-    const phases = [preparePhase, ...workout.phases.map((p) => ({ ...p }))];
+    const phasesFromWorkout = expandWorkoutPhases(workout || { phases: [] });
+    const phases = [preparePhase, ...phasesFromWorkout];
     return new TimerEngine(phases, callbacks);
   }
 
@@ -23,6 +26,13 @@ export class TimerEngine {
 
   isLastPhase() {
     return this.currentPhaseIndex === this.phases.length - 1;
+  }
+
+  start() {
+    if (this._hasStarted) return;
+    this._hasStarted = true;
+    this.#onPhaseEnter();
+    this.#emitPhaseChange();
   }
 
   goToPhase(index) {

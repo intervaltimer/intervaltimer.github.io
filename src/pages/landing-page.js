@@ -8,18 +8,18 @@ class LandingPage extends HTMLElement {
 
   render() {
     this.innerHTML = `
-      <div class="landing-hero">
+      <div class="landing-content">
         <p class="landing-tagline">Create interval workouts that autosave on your device</p>
         <button class="app-button" id="btn-start">Start</button>
-      </div>
-      <div class="landing-footer">
-        <span>made with</span>
-        <span class="icon-feather" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.8 4.6c-1.5-1.4-3.9-1.4-5.4 0L12 8l-3.4-3.4c-1.5-1.4-3.9-1.4-5.4 0-1.6 1.5-1.6 4 0 5.5L12 21l8.8-10.9c1.6-1.5 1.6-4 0-5.5z"></path>
-          </svg>
-        </span>
-        <span>by the AI next door</span>
+        <div class="landing-footer">
+          <span>made with</span>
+          <span class="icon-feather" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.8 4.6c-1.5-1.4-3.9-1.4-5.4 0L12 8l-3.4-3.4c-1.5-1.4-3.9-1.4-5.4 0-1.6 1.5-1.6 4 0 5.5L12 21l8.8-10.9c1.6-1.5 1.6-4 0-5.5z"></path>
+            </svg>
+          </span>
+          <span>by the AI next door</span>
+        </div>
       </div>
     `;
 
