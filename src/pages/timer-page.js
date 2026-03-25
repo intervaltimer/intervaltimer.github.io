@@ -1,7 +1,15 @@
 import { getWorkout, getOrCreateDefaultWorkout, upsertWorkout } from '../storage/workouts.js';
 import { TimerEngine } from '../timer/engine.js';
 import { navigateTo, ROUTES } from '../router.js';
-import { speak, beepLow, beepHigh, warmUpSpeech, ensureAudioReady } from '../audio/speech.js';
+import {
+  speak,
+  beepLow,
+  beepHigh,
+  warmUpSpeech,
+  ensureAudioReady,
+  isSpeechSupported,
+  isAudioSupported,
+} from '../audio/speech.js';
 
 class TimerPage extends HTMLElement {
   constructor() {
@@ -10,6 +18,8 @@ class TimerPage extends HTMLElement {
     this.engine = null;
     this.isRunning = false;
     this.isPreparing = false;
+    this._speechError = false;
+    this._audioError = false;
     this._intervalId = null;
     this._bgMode = null;
     this._bgPhaseKey = null;
@@ -105,6 +115,10 @@ class TimerPage extends HTMLElement {
           <div id="timer-remaining-label" class="timer-remaining-label"></div>
           <div id="timer-remaining-summary" class="timer-remaining-summary"></div>
       </div>
+      <div class="timer-warnings">
+        <div id="timer-speech-warning" class="timer-warning-text"></div>
+        <div id="timer-beep-warning" class="timer-warning-text"></div>
+      </div>
       <div class="app-row app-row--center" id="timer-controls-row">
         <button class="icon-button" id="btn-prev" aria-label="Previous phase">
           <span class="icon-feather" aria-hidden="true">
@@ -145,6 +159,8 @@ class TimerPage extends HTMLElement {
     this._nextPhaseEl = this.querySelector('#timer-next-phase');
     this._remainingSummaryEl = this.querySelector('#timer-remaining-summary');
       this._remainingLabelEl = this.querySelector('#timer-remaining-label');
+    this._speechWarningEl = this.querySelector('#timer-speech-warning');
+    this._beepWarningEl = this.querySelector('#timer-beep-warning');
     this._btnBackDashboard = this.querySelector('#btn-back-dashboard');
     this._btnPrev = this.querySelector('#btn-prev');
         if (this._btnBackDashboard) {
@@ -194,8 +210,10 @@ class TimerPage extends HTMLElement {
       this.isPreparing = true;
       this.#updateUI();
       try {
-        await ensureAudioReady();
-        await warmUpSpeech();
+        const audioOk = await ensureAudioReady();
+        const speechOk = await warmUpSpeech();
+        this._audioError = !audioOk && isAudioSupported();
+        this._speechError = !speechOk && isSpeechSupported();
       } finally {
         this.isPreparing = false;
       }
@@ -318,6 +336,24 @@ class TimerPage extends HTMLElement {
         this._iconPlay.style.display = '';
         this._iconPause.style.display = 'none';
         this._iconSpinner.style.display = 'none';
+      }
+    }
+
+    if (this._speechWarningEl) {
+      const unsupported = !isSpeechSupported();
+      if (unsupported || this._speechError) {
+        this._speechWarningEl.textContent = 'Voice cues are not supported on this device.';
+      } else {
+        this._speechWarningEl.textContent = '';
+      }
+    }
+
+    if (this._beepWarningEl) {
+      const unsupported = !isAudioSupported();
+      if (unsupported || this._audioError) {
+        this._beepWarningEl.textContent = 'Beeping sounds are not supported on this device.';
+      } else {
+        this._beepWarningEl.textContent = '';
       }
     }
 

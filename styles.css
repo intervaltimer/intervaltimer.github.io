@@ -452,6 +452,17 @@ input.app-input.seconds-input {
   gap: 6px;
 }
 
+.timer-warnings {
+  min-height: 0;
+  margin-bottom: 4px;
+}
+
+.timer-warning-text {
+  color: #ff9a3b;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
 .timer-time {
   font-size: 2.4rem;
   font-variant-numeric: tabular-nums;
