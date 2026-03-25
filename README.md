@@ -2,13 +2,14 @@
 
 Live app: www.interval.github.io
 
-None of the interval timers online quite matched what I needed: autosave, easy workout configuration, and a clear voice-over.
+None of the interval timers online quite matched what I needed: autosave, easy workout configuration, workout sharing and a clear voice-over.
 
 ## Features
 
 - Installable PWA designed for mobile (portrait-only, no zoom)
 - Idle, exercise, and rest backgrounds with smooth color cues
 - Voice guidance plus audio beeps for countdown and transitions
+- Share your workouts via an url
 - Workout dashboard with summaries (exercise counts and total time)
 - Customize page with per-phase editing and quick actions
 - Local storage persistence so workouts are saved on your device

@@ -1,7 +1,7 @@
 import { getWorkout, getOrCreateDefaultWorkout, upsertWorkout } from '../storage/workouts.js';
 import { TimerEngine } from '../timer/engine.js';
 import { navigateTo, ROUTES } from '../router.js';
-import { speak, beepLow, beepHigh, warmUpSpeech } from '../audio/speech.js';
+import { speak, beepLow, beepHigh, warmUpSpeech, ensureAudioReady } from '../audio/speech.js';
 
 class TimerPage extends HTMLElement {
   constructor() {
@@ -194,6 +194,7 @@ class TimerPage extends HTMLElement {
       this.isPreparing = true;
       this.#updateUI();
       try {
+        await ensureAudioReady();
         await warmUpSpeech();
       } finally {
         this.isPreparing = false;

@@ -9,7 +9,7 @@ class LandingPage extends HTMLElement {
   render() {
     this.innerHTML = `
       <div class="landing-content">
-        <p class="landing-tagline">Create interval workouts that autosave on your device</p>
+        <p class="landing-tagline">Build, share and run smart interval workouts that live on your phone.</p>
         <button class="app-button" id="btn-start">Start</button>
         <div class="landing-footer">
           <span>made with</span>

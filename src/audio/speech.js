@@ -12,6 +12,19 @@ function getAudioContext() {
   return audioContext;
 }
 
+export async function ensureAudioReady() {
+  if (typeof window === 'undefined') return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') {
+    try {
+      await ctx.resume();
+    } catch {
+      // Ignore resume errors; on iOS this still needs a user gesture.
+    }
+  }
+}
+
 export function speak(text) {
   if (typeof window === 'undefined') return;
   if ('speechSynthesis' in window) {
@@ -30,17 +43,27 @@ export function warmUpSpeech() {
   }
 
   return new Promise((resolve) => {
-    const utterance = new SpeechSynthesisUtterance(' ');
-    utterance.volume = 0;
-    utterance.onend = () => {
+    let settled = false;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
       speechWarmed = true;
       resolve();
     };
-    utterance.onerror = () => {
-      speechWarmed = true;
-      resolve();
-    };
-    window.speechSynthesis.speak(utterance);
+
+    try {
+      const utterance = new SpeechSynthesisUtterance('.');
+      utterance.volume = 0;
+      utterance.onend = finish;
+      utterance.onerror = finish;
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      finish();
+    }
+
+    // Safety timeout for buggy platforms (e.g. some iOS builds)
+    setTimeout(finish, 1500);
   });
 }
 
