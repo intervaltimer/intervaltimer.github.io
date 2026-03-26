@@ -25,9 +25,56 @@ class CustomizePage extends HTMLElement {
     const workout = (id && getWorkout(id)) || {
       id: id || 'new',
       title: 'New Workout',
+      completed: 0,
       phases: [],
     };
-    this.workout = JSON.parse(JSON.stringify(workout));
+    this.workout = this.#normalizeWorkout(JSON.parse(JSON.stringify(workout)));
+  }
+
+  #normalizeWorkout(workout) {
+    const normalized = workout || { phases: [] };
+    const phases = Array.isArray(normalized.phases) ? normalized.phases : [];
+    const nextPhases = [];
+    let inSet = false;
+
+    for (const phase of phases) {
+      if (!phase) continue;
+
+      if (phase.kind === 'group') {
+        nextPhases.push({ ...phase, kind: 'set' });
+        inSet = true;
+        continue;
+      }
+
+      if (phase.kind === 'set') {
+        nextPhases.push({ ...phase });
+        inSet = true;
+        continue;
+      }
+
+      if (phase.kind === 'rest' && phase.ungrouped) {
+        nextPhases.push({ ...phase });
+        inSet = false;
+        continue;
+      }
+
+      if (phase.kind === 'exercise') {
+        if (!inSet) {
+          nextPhases.push({ kind: 'set', series: 1 });
+          inSet = true;
+        }
+        const cloned = { ...phase };
+        delete cloned.ungrouped;
+        nextPhases.push(cloned);
+        continue;
+      }
+
+      nextPhases.push({ ...phase });
+      inSet = false;
+    }
+
+    normalized.phases = nextPhases;
+    return normalized;
   }
 
   #render() {
@@ -48,10 +95,10 @@ class CustomizePage extends HTMLElement {
         <input id="workout-title" class="app-input" placeholder="Workout title" />
         <div id="phases" class="phases-list"></div>
         <div id="workout-summary" class="card-subtitle"></div>
+        <div id="workout-completed" class="card-subtitle workout-stats"></div>
         <div class="app-row app-row--center app-footer-row">
-          <button class="app-button" id="btn-add-exercise">+ exercise</button>
           <button class="app-button" id="btn-add-rest">+ rest</button>
-          <button class="app-button" id="btn-add-group">+ group</button>
+          <button class="app-button" id="btn-add-set">+ set</button>
         </div>
         <div class="app-row app-row--center app-footer-row">
           <button class="app-button" id="btn-back">Back to timer</button>
@@ -61,11 +108,11 @@ class CustomizePage extends HTMLElement {
 
     this._titleInput = this.querySelector('#workout-title');
     this._phasesContainer = this.querySelector('#phases');
-  this._summaryEl = this.querySelector('#workout-summary');
+    this._summaryEl = this.querySelector('#workout-summary');
+    this._completedEl = this.querySelector('#workout-completed');
     this._btnBackTop = this.querySelector('#btn-back-top');
-    this._btnAddExercise = this.querySelector('#btn-add-exercise');
     this._btnAddRest = this.querySelector('#btn-add-rest');
-    this._btnAddGroup = this.querySelector('#btn-add-group');
+    this._btnAddSet = this.querySelector('#btn-add-set');
     this._btnBack = this.querySelector('#btn-back');
     if (this._btnBackTop) {
       this._btnBackTop.addEventListener('click', () => {
@@ -82,14 +129,6 @@ class CustomizePage extends HTMLElement {
       this.#renderSummary();
     });
 
-    this._btnAddExercise.addEventListener('click', () => {
-      const phases = this.workout.phases || [];
-      phases.push({ kind: 'exercise', title: 'Work', seconds: 20, ungrouped: true });
-      this.#save();
-      this.#renderPhases();
-      this.#renderSummary();
-    });
-
     this._btnAddRest.addEventListener('click', () => {
       const phases = this.workout.phases || [];
       phases.push({ kind: 'rest', seconds: 20, ungrouped: true });
@@ -98,8 +137,8 @@ class CustomizePage extends HTMLElement {
       this.#renderSummary();
     });
 
-    this._btnAddGroup.addEventListener('click', () => {
-      this.workout.phases.push({ kind: 'group', series: 1 });
+    this._btnAddSet.addEventListener('click', () => {
+      this.workout.phases.push({ kind: 'set', series: 1 });
       this.#save();
       this.#renderPhases();
       this.#renderSummary();
@@ -120,13 +159,13 @@ class CustomizePage extends HTMLElement {
     for (let index = 0; index < phases.length; index += 1) {
       const phase = phases[index];
 
-      // Group: create one card and include all following non-group phases in it.
-      if (phase.kind === 'group') {
+      // Set: create one card and include all following non-set phases in it.
+      if (phase.kind === 'set' || phase.kind === 'group') {
         const card = document.createElement('div');
         card.className = 'card';
 
         const groupRow = document.createElement('div');
-        groupRow.className = 'phase-row phase-row--group';
+        groupRow.className = 'phase-row phase-row--set phase-row--group';
 
         const seriesCol = document.createElement('div');
         seriesCol.className = 'phase-main phase-main--series';
@@ -157,11 +196,16 @@ class CustomizePage extends HTMLElement {
         card.appendChild(groupRow);
 
         const childrenContainer = document.createElement('div');
-        childrenContainer.className = 'group-children';
+        childrenContainer.className = 'set-children group-children';
 
-        // Add all child phases (until next group) into the same card.
+        // Add all child phases (until next set) into the same card.
         let childIndex = index + 1;
-        while (childIndex < phases.length && phases[childIndex].kind !== 'group' && !phases[childIndex].ungrouped) {
+        while (
+          childIndex < phases.length &&
+          phases[childIndex].kind !== 'set' &&
+          phases[childIndex].kind !== 'group' &&
+          !phases[childIndex].ungrouped
+        ) {
           const childPhase = phases[childIndex];
           const childCard = document.createElement('div');
           childCard.className = 'card card--inner-group';
@@ -229,7 +273,7 @@ class CustomizePage extends HTMLElement {
         continue;
       }
 
-      // Non-group phase outside of any group: its own card.
+      // Standalone rest outside of any set: its own card.
       const card = document.createElement('div');
       card.className = 'card';
       const row = document.createElement('div');
@@ -260,7 +304,7 @@ class CustomizePage extends HTMLElement {
         row.appendChild(secondsCol);
         row.appendChild(actionsCol);
       } else {
-        // Rest outside of any group.
+        // Rest outside of any set.
         const labelCol = document.createElement('div');
         labelCol.className = 'phase-main';
         const restInput = document.createElement('input');
@@ -395,11 +439,11 @@ class CustomizePage extends HTMLElement {
       </svg>
     `;
 
-    if (phase.kind === 'group') {
+    if (phase.kind === 'set' || phase.kind === 'group') {
       addItem('Add exercise', plusIcon, () => {
         const phases = this.workout.phases;
         let insertIndex = index + 1;
-        while (insertIndex < phases.length && phases[insertIndex].kind !== 'group') {
+        while (insertIndex < phases.length && phases[insertIndex].kind !== 'set' && phases[insertIndex].kind !== 'group') {
           insertIndex += 1;
         }
         phases.splice(insertIndex, 0, { kind: 'exercise', title: 'Work', seconds: 20 });
@@ -410,7 +454,7 @@ class CustomizePage extends HTMLElement {
       addItem('Add rest', plusIcon, () => {
         const phases = this.workout.phases;
         let insertIndex = index + 1;
-        while (insertIndex < phases.length && phases[insertIndex].kind !== 'group') {
+        while (insertIndex < phases.length && phases[insertIndex].kind !== 'set' && phases[insertIndex].kind !== 'group') {
           insertIndex += 1;
         }
         phases.splice(insertIndex, 0, { kind: 'rest', seconds: 20 });
@@ -420,7 +464,41 @@ class CustomizePage extends HTMLElement {
     }
 
     addItem('Duplicate', copyIcon, () => {
-      this.workout.phases.push({ ...phase });
+      const phases = this.workout.phases || [];
+
+      // When duplicating a set, also duplicate all of its children
+      // (phases that belong to this set until the next set/ungrouped).
+      if (phase.kind === 'set' || phase.kind === 'group') {
+        const cloned = [];
+
+        // Clone the set marker itself.
+        cloned.push({ ...phase, kind: 'set' });
+
+        // Collect and clone all child phases that belong to this set.
+        let childIndex = index + 1;
+        while (
+          childIndex < phases.length &&
+          phases[childIndex].kind !== 'set' &&
+          phases[childIndex].kind !== 'group' &&
+          !phases[childIndex].ungrouped
+        ) {
+          cloned.push({ ...phases[childIndex] });
+          childIndex += 1;
+        }
+
+        phases.push(...cloned);
+      } else {
+        const { start, endExclusive } = this.#getSetBoundsForIndex(index);
+
+        // If this phase lives inside a set, duplicate it at the end of that set's children.
+        if (start >= 0) {
+          phases.splice(endExclusive, 0, { ...phase });
+        } else {
+          // Standalone rests keep the old append behavior.
+          phases.push({ ...phase });
+        }
+      }
+
       this.#save();
       this.#renderPhases();
     }, 'phase-menu-item--duplicate');
@@ -429,7 +507,7 @@ class CustomizePage extends HTMLElement {
       if (index <= 0) return;
       const phases = this.workout.phases;
 
-      const { start } = this.#getGroupBoundsForIndex(index);
+      const { start } = this.#getSetBoundsForIndex(index);
       const minIndex = start >= 0 ? start + 1 : 0;
       if (index <= minIndex) return;
 
@@ -443,7 +521,7 @@ class CustomizePage extends HTMLElement {
       const phases = this.workout.phases;
       if (index >= phases.length - 1) return;
 
-      const { endExclusive } = this.#getGroupBoundsForIndex(index);
+      const { endExclusive } = this.#getSetBoundsForIndex(index);
       const maxIndex = endExclusive - 1;
       if (index >= maxIndex) return;
 
@@ -486,18 +564,30 @@ class CustomizePage extends HTMLElement {
     const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     this._summaryEl.textContent = `${namesText} 
 Total: ${timeText}`;
+
+    if (this._completedEl) {
+      const completed = typeof this.workout.completed === 'number' ? this.workout.completed : 0;
+      this._completedEl.textContent = completed > 0
+        ? `Completed ${completed} ${completed === 1 ? 'time' : 'times'}`
+        : '';
+    }
   }
 
-  #getGroupBoundsForIndex(index) {
+  #getSetBoundsForIndex(index) {
     const phases = this.workout?.phases || [];
     if (index < 0 || index >= phases.length) {
       return { start: -1, endExclusive: phases.length };
     }
 
-    // For exercises/rest, find the nearest group marker before and after.
+    // If the phase is standalone, treat it as standalone.
+    if (phases[index].ungrouped) {
+      return { start: -1, endExclusive: phases.length };
+    }
+
+    // For exercises/rest in sets, find the nearest set marker before and after.
     let start = -1;
     for (let i = index; i >= 0; i -= 1) {
-      if (phases[i].kind === 'group') {
+      if (phases[i].kind === 'set' || phases[i].kind === 'group') {
         start = i;
         break;
       }
@@ -505,7 +595,7 @@ Total: ${timeText}`;
 
     let endExclusive = phases.length;
     for (let i = index + 1; i < phases.length; i += 1) {
-      if (phases[i].kind === 'group') {
+      if (phases[i].kind === 'set' || phases[i].kind === 'group' || phases[i].ungrouped) {
         endExclusive = i;
         break;
       }

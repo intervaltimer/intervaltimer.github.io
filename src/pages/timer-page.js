@@ -20,6 +20,7 @@ class TimerPage extends HTMLElement {
     this.isPreparing = false;
     this._speechError = false;
     this._audioError = false;
+    this._completionPersisted = false;
     this._intervalId = null;
     this._bgMode = null;
     this._bgPhaseKey = null;
@@ -50,6 +51,7 @@ class TimerPage extends HTMLElement {
         const workout = {
           id,
           title: parsed && typeof parsed.title === 'string' ? parsed.title : 'Shared Workout',
+          completed: 0,
           phases: Array.isArray(parsed && parsed.phases) ? parsed.phases : [],
         };
         upsertWorkout(workout);
@@ -112,8 +114,16 @@ class TimerPage extends HTMLElement {
         <div id="timer-time" class="timer-time"></div>
         <div id="timer-coming-up-label" class="timer-coming-up-label"></div>
         <div id="timer-next-phase" class="timer-next-phase"></div>
-          <div id="timer-remaining-label" class="timer-remaining-label"></div>
-          <div id="timer-remaining-summary" class="timer-remaining-summary"></div>
+          <div id="timer-progress-row" class="timer-progress-row">
+            <div class="timer-progress-card">
+              <div class="timer-progress-card__label">Rep</div>
+              <div id="timer-rep-progress" class="timer-progress-card__value"></div>
+            </div>
+            <div class="timer-progress-card">
+              <div class="timer-progress-card__label">Set</div>
+              <div id="timer-set-progress" class="timer-progress-card__value"></div>
+            </div>
+          </div>
       </div>
       <div class="timer-warnings">
         <div id="timer-speech-warning" class="timer-warning-text"></div>
@@ -157,8 +167,9 @@ class TimerPage extends HTMLElement {
     this._phaseLabelEl = this.querySelector('#timer-phase-label');
     this._comingUpLabelEl = this.querySelector('#timer-coming-up-label');
     this._nextPhaseEl = this.querySelector('#timer-next-phase');
-    this._remainingSummaryEl = this.querySelector('#timer-remaining-summary');
-      this._remainingLabelEl = this.querySelector('#timer-remaining-label');
+    this._progressRowEl = this.querySelector('#timer-progress-row');
+    this._repProgressEl = this.querySelector('#timer-rep-progress');
+    this._setProgressEl = this.querySelector('#timer-set-progress');
     this._speechWarningEl = this.querySelector('#timer-speech-warning');
     this._beepWarningEl = this.querySelector('#timer-beep-warning');
     this._btnBackDashboard = this.querySelector('#btn-back-dashboard');
@@ -256,6 +267,21 @@ class TimerPage extends HTMLElement {
     const phase = this.engine.getCurrentPhase();
     const remaining = this.engine.remainingSeconds;
     const nextPhase = this.engine.phases[this.engine.currentPhaseIndex + 1] || null;
+    const isComplete = this.engine.isComplete();
+
+    if (isComplete && !this._completionPersisted && this.workout) {
+      const completed = typeof this.workout.completed === 'number' ? this.workout.completed : 0;
+      this.workout = {
+        ...this.workout,
+        completed: completed + 1,
+      };
+      upsertWorkout(this.workout);
+      this._completionPersisted = true;
+    }
+
+    if (!isComplete) {
+      this._completionPersisted = false;
+    }
 
     if (this._titleEl && this.workout) {
       this._titleEl.textContent = this.workout.title || 'Workout';
@@ -267,7 +293,7 @@ class TimerPage extends HTMLElement {
 
     if (this._phaseLabelEl) {
       if (!phase) {
-        this._phaseLabelEl.textContent = '';
+        this._phaseLabelEl.textContent = this.engine.isComplete() ? 'Well done!' : '';
       } else if (phase.kind === 'prepare') {
         this._phaseLabelEl.textContent = 'Prepare';
       } else if (phase.kind === 'exercise') {
@@ -296,25 +322,31 @@ class TimerPage extends HTMLElement {
       }
     }
 
-    if (this._remainingSummaryEl) {
-      if (this._remainingLabelEl && this._remainingSummaryEl) {
-        const summaryText = this.#getRemainingSummary();
-        if (summaryText) {
-          this._remainingLabelEl.textContent = 'Remaining…';
-          this._remainingSummaryEl.textContent = summaryText;
-        } else {
-          this._remainingLabelEl.textContent = '';
-          this._remainingSummaryEl.textContent = '';
+    if (this._progressRowEl) {
+      const progress = this.#getProgressState();
+      if (progress.hasProgress) {
+        if (this._repProgressEl) {
+          this._repProgressEl.textContent = progress.repText;
+        }
+        if (this._setProgressEl) {
+          this._setProgressEl.textContent = progress.setText;
+        }
+      } else {
+        if (this._repProgressEl) {
+          this._repProgressEl.textContent = '';
+        }
+        if (this._setProgressEl) {
+          this._setProgressEl.textContent = '';
         }
       }
     }
 
     if (this._btnPrev) {
-      this._btnPrev.disabled = this.engine.isFirstPhase();
+      this._btnPrev.disabled = this.engine.isFirstPhase() || this.engine.isComplete();
     }
 
     if (this._btnNext) {
-      this._btnNext.disabled = this.engine.isLastPhase();
+      this._btnNext.disabled = this.engine.isLastPhase() || this.engine.isComplete();
     }
 
     if (this._btnPlay) {
@@ -400,47 +432,127 @@ class TimerPage extends HTMLElement {
     }
   }
 
-  #getRemainingSummary() {
-    if (!this.engine) return '';
-
-    const phases = this.engine.phases || [];
-    const currentIndex = this.engine.currentPhaseIndex ?? 0;
-
-    if (!phases.length || currentIndex >= phases.length) {
-      return '';
+  #getProgressState() {
+    if (!this.engine || !this.workout) {
+      return { hasProgress: false, repText: '', setText: '' };
     }
 
-    let remainingSeconds = this.engine.remainingSeconds ?? 0;
-    let exercises = 0;
-    let rests = 0;
+    const contexts = this.#getPhaseContexts();
+    if (!contexts.length) {
+      return { hasProgress: false, repText: '', setText: '' };
+    }
 
     const currentPhase = this.engine.getCurrentPhase();
-    if (currentPhase) {
-      if (currentPhase.kind === 'exercise') exercises += 1;
-      if (currentPhase.kind === 'rest') rests += 1;
+    if (!currentPhase) {
+      return { hasProgress: false, repText: '', setText: '' };
     }
 
-    for (let i = currentIndex + 1; i < phases.length; i += 1) {
-      const p = phases[i];
-      if (!p) continue;
-      remainingSeconds += p.seconds ?? 0;
-      if (p.kind === 'exercise') exercises += 1;
-      if (p.kind === 'rest') rests += 1;
+    const currentIndex = this.engine.currentPhaseIndex ?? 0;
+    const setContexts = contexts.filter((entry) => entry.kind === 'set' && entry.totalExercises > 0);
+    const currentContext = currentPhase.kind === 'prepare'
+      ? setContexts[0] || null
+      : contexts.find((entry) => currentIndex >= entry.startIndex && currentIndex < entry.endIndex) || null;
+
+    const currentSetIndex = currentPhase.kind === 'prepare'
+      ? 0
+      : setContexts.findIndex((entry) => currentIndex >= entry.startIndex && currentIndex < entry.endIndex);
+    const totalSets = setContexts.length;
+
+    if (!currentContext || currentContext.totalExercises <= 0 || currentSetIndex < 0 || totalSets <= 0) {
+      return {
+        hasProgress: false,
+        repText: '',
+        setText: '',
+      };
     }
 
-    if (remainingSeconds <= 0) return '';
+    return {
+      hasProgress: true,
+      repText: `${currentContext.completedExercisesBefore(currentIndex)}/${currentContext.totalExercises}`,
+      setText: `${currentSetIndex + 1}/${totalSets}`,
+    };
+  }
 
-    const parts = [];
-    if (exercises > 0) {
-      parts.push(`${exercises} exercise${exercises === 1 ? '' : 's'}`);
-    }
-    if (rests > 0) {
-      parts.push(`${rests} rest${rests === 1 ? '' : 's'}`);
+  #getPhaseContexts() {
+    const phases = Array.isArray(this.workout?.phases) ? this.workout.phases : [];
+    const contexts = [];
+
+    let expandedIndex = 1;
+
+    for (let i = 0; i < phases.length; ) {
+      const phase = phases[i];
+      if (!phase) {
+        i += 1;
+        continue;
+      }
+
+      if (phase.kind === 'set' || phase.kind === 'group') {
+        const rawSeries = typeof phase.series === 'number' ? phase.series : parseInt(phase.series, 10);
+        const series = Number.isFinite(rawSeries) && rawSeries > 0 ? rawSeries : 1;
+
+        const children = [];
+        let childIndex = i + 1;
+        while (childIndex < phases.length) {
+          const child = phases[childIndex];
+          if (!child || child.kind === 'set' || child.kind === 'group' || child.ungrouped) break;
+          children.push(child);
+          childIndex += 1;
+        }
+
+        const expandedPhases = [];
+        for (let repeat = 0; repeat < series; repeat += 1) {
+          expandedPhases.push(...children);
+        }
+
+        const totalExercises = expandedPhases.filter((child) => child.kind === 'exercise').length;
+        const startIndex = expandedIndex;
+        const endIndex = expandedIndex + expandedPhases.length;
+
+        contexts.push({
+          kind: 'set',
+          startIndex,
+          endIndex,
+          totalExercises,
+          completedExercisesBefore: (currentIndex) => {
+            const offset = Math.max(0, currentIndex - startIndex);
+            return expandedPhases.slice(0, offset).filter((child) => child.kind === 'exercise').length;
+          },
+        });
+
+        expandedIndex = endIndex;
+        i = childIndex;
+        continue;
+      }
+
+      const standalone = [];
+      let nextIndex = i;
+      while (nextIndex < phases.length) {
+        const nextPhase = phases[nextIndex];
+        if (!nextPhase || nextPhase.kind === 'set' || nextPhase.kind === 'group') break;
+        standalone.push(nextPhase);
+        nextIndex += 1;
+      }
+
+      const totalExercises = standalone.filter((entry) => entry.kind === 'exercise').length;
+      const startIndex = expandedIndex;
+      const endIndex = expandedIndex + standalone.length;
+
+      contexts.push({
+        kind: 'standalone',
+        startIndex,
+        endIndex,
+        totalExercises,
+        completedExercisesBefore: (currentIndex) => {
+          const offset = Math.max(0, currentIndex - startIndex);
+          return standalone.slice(0, offset).filter((entry) => entry.kind === 'exercise').length;
+        },
+      });
+
+      expandedIndex = endIndex;
+      i = nextIndex;
     }
 
-    const timeText = this.#formatSeconds(remainingSeconds);
-    const phasesText = parts.length ? parts.join(' • ') + ' • ' : '';
-    return `${phasesText}${timeText}`;
+    return contexts;
   }
 }
 

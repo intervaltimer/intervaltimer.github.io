@@ -63,6 +63,14 @@ class DashboardPage extends HTMLElement {
 Total: ${timeText}`;
       content.appendChild(subtitle);
 
+      const completed = typeof w.completed === 'number' ? w.completed : 0;
+      if (completed > 0) {
+        const completedEl = document.createElement('div');
+        completedEl.className = 'card-subtitle dashboard-card-stat';
+        completedEl.textContent = `Completed ${completed} ${completed === 1 ? 'time' : 'times'}`;
+        content.appendChild(completedEl);
+      }
+
       card.appendChild(content);
 
       const actions = document.createElement('div');
@@ -161,6 +169,7 @@ Total: ${timeText}`;
       const workout = {
         id,
         title: 'New Workout',
+        completed: 0,
         phases: [],
       };
       upsertWorkout(workout);

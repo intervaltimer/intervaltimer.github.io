@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-vi.mock('../src/storage/workouts.js', () => {
+vi.mock('../src/storage/workouts.js', async (importActual) => {
+  const actual = await importActual();
   return {
+    ...actual,
     getWorkout: vi.fn(),
     getOrCreateDefaultWorkout: vi.fn(),
+    upsertWorkout: vi.fn(),
   };
 });
 
@@ -11,10 +14,12 @@ vi.mock('../src/audio/speech.js', () => ({
   speak: vi.fn(),
   beepLow: vi.fn(),
   beepHigh: vi.fn(),
+  warmUpSpeech: vi.fn().mockResolvedValue(true),
+  ensureAudioReady: vi.fn().mockResolvedValue(true),
+  isSpeechSupported: vi.fn().mockReturnValue(true),
+  isAudioSupported: vi.fn().mockReturnValue(true),
 }));
 
-// Use real TimerEngine to keep phase logic consistent.
-import { TimerEngine } from '../src/timer/engine.js';
 vi.mock('../src/timer/engine.js', async () => {
   const actual = await vi.importActual('../src/timer/engine.js');
   return {
@@ -28,6 +33,7 @@ vi.mock('../src/router.js', () => ({
 }));
 
 import { getWorkout, getOrCreateDefaultWorkout } from '../src/storage/workouts.js';
+import { upsertWorkout } from '../src/storage/workouts.js';
 import { navigateTo, ROUTES } from '../src/router.js';
 
 await import('../src/pages/timer-page.js');
@@ -37,6 +43,10 @@ function createTimerPage(attrs = {}) {
   Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
   document.body.appendChild(el);
   return el;
+}
+
+function flushAsync() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe('timer page', () => {
@@ -71,7 +81,7 @@ describe('timer page', () => {
     expect(header.textContent).toContain('Morning Routine');
   });
 
-  it('should start the prepare phase on clicking the play button', () => {
+  it('should start the prepare phase on clicking the play button', async () => {
     const workout = {
       id: 'w1',
       title: 'T',
@@ -84,8 +94,15 @@ describe('timer page', () => {
 
     const el = createTimerPage({ 'workout-id': 'w1' });
     const btnPlay = el.querySelector('#btn-play');
+    expect(btnPlay.getAttribute('aria-label')).toBe('Play');
     btnPlay.click();
 
+    expect(btnPlay.getAttribute('aria-label')).toBe('Loading');
+
+    await flushAsync();
+
+    expect(btnPlay.getAttribute('aria-label')).toBe('Pause');
+    expect(btnPlay.disabled).toBe(false);
     // After starting, we expect the phase label to show Prepare
     const phaseLabel = el.querySelector('#timer-phase-label').textContent;
     expect(phaseLabel).toContain('Prepare');
@@ -106,32 +123,7 @@ describe('timer page', () => {
     expect(navigateTo).toHaveBeenCalledWith(ROUTES.DASHBOARD);
   });
 
-  it('should change icon to pause icon when clicking the play button', () => {
-    const workout = {
-      id: 'w1',
-      title: 'T',
-      phases: [{ kind: 'exercise', title: 'Work', seconds: 10 }],
-    };
-    getWorkout.mockReturnValue(workout);
-
-    const el = createTimerPage({ 'workout-id': 'w1' });
-    const btnPlay = el.querySelector('#btn-play');
-
-    const iconPlay = btnPlay.querySelector('#icon-play');
-    const iconPause = btnPlay.querySelector('#icon-pause');
-
-    // Initially, play icon visible, pause hidden
-    expect(iconPlay.style.display).not.toBe('none');
-    expect(iconPause.style.display).toBe('none');
-
-    btnPlay.click();
-
-    // After clicking, pause icon visible, play hidden
-    expect(iconPlay.style.display).toBe('none');
-    expect(iconPause.style.display).not.toBe('none');
-  });
-
-  it('should pause a workout on clicking pause', () => {
+  it('should pause a workout on clicking pause', async () => {
     const workout = {
       id: 'w1',
       title: 'T',
@@ -143,6 +135,9 @@ describe('timer page', () => {
     const btnPlay = el.querySelector('#btn-play');
 
     btnPlay.click();
+
+    await flushAsync();
+
     expect(btnPlay.getAttribute('aria-label')).toBe('Pause');
 
     const iconPlay = btnPlay.querySelector('#icon-play');
@@ -234,6 +229,69 @@ describe('timer page', () => {
     expect(label()).toContain('Work A');
   });
 
+  it("should show Rep and Set cards for the current set progress", () => {
+    const workout = {
+      id: 'w1',
+      title: 'T',
+      phases: [
+        { kind: 'set', series: 1 },
+        { kind: 'exercise', title: 'Work A', seconds: 10 },
+        { kind: 'rest', seconds: 5 },
+        { kind: 'exercise', title: 'Work B', seconds: 10 },
+      ],
+    };
+    getWorkout.mockReturnValue(workout);
+
+    const el = createTimerPage({ 'workout-id': 'w1' });
+    const btnNext = el.querySelector('#btn-next');
+    const rep = () => el.querySelector('#timer-rep-progress').textContent;
+    const set = () => el.querySelector('#timer-set-progress').textContent;
+
+    expect(el.querySelectorAll('.timer-progress-card').length).toBe(2);
+    expect(el.querySelector('.timer-progress-card__label').textContent).toBe('Rep');
+    expect(el.querySelectorAll('.timer-progress-card__label')[1].textContent).toBe('Set');
+    expect(rep()).toBe('0/2');
+    expect(set()).toBe('1/1');
+
+    btnNext.click();
+    expect(rep()).toBe('0/2');
+    expect(set()).toBe('1/1');
+
+    btnNext.click();
+    expect(rep()).toBe('1/2');
+    expect(set()).toBe('1/1');
+  });
+
+  it("should show Rep and Set cards for the workout's remaining sets", () => {
+    const workout = {
+      id: 'w1',
+      title: 'T',
+      phases: [
+        { kind: 'set', series: 1 },
+        { kind: 'exercise', title: 'Work A', seconds: 10 },
+        { kind: 'set', series: 1 },
+        { kind: 'exercise', title: 'Work B', seconds: 10 },
+      ],
+    };
+    getWorkout.mockReturnValue(workout);
+
+    const el = createTimerPage({ 'workout-id': 'w1' });
+    const btnNext = el.querySelector('#btn-next');
+    const rep = () => el.querySelector('#timer-rep-progress').textContent;
+    const set = () => el.querySelector('#timer-set-progress').textContent;
+
+    expect(rep()).toBe('0/1');
+    expect(set()).toBe('1/2');
+
+    btnNext.click();
+    expect(rep()).toBe('0/1');
+    expect(set()).toBe('1/2');
+
+    btnNext.click();
+    expect(rep()).toBe('0/1');
+    expect(set()).toBe('2/2');
+  });
+
   it('should navigate to the customize page on customize click with the current workout as state', () => {
     const workout = {
       id: 'w1',
@@ -247,5 +305,29 @@ describe('timer page', () => {
     btnCustomize.click();
 
     expect(navigateTo).toHaveBeenCalledWith(ROUTES.CUSTOMIZE, 'w1');
+  });
+
+  it('should say Well done after the workout is complete', async () => {
+    const workout = {
+      id: 'w1',
+      title: 'T',
+      phases: [
+        { kind: 'exercise', title: 'Work', seconds: 1 },
+        { kind: 'rest', seconds: 20 },
+      ],
+    };
+    getWorkout.mockReturnValue(workout);
+
+    const el = createTimerPage({ 'workout-id': 'w1' });
+    el.querySelector('#btn-play').click();
+    await flushAsync();
+
+    for (let i = 0; i < 10; i += 1) {
+      el.engine.tick();
+    }
+    el.engine.tick();
+
+    expect(el.querySelector('#timer-phase-label').textContent).toBe('Well done!');
+    expect(upsertWorkout).toHaveBeenCalledWith(expect.objectContaining({ id: 'w1', completed: 1 }));
   });
 });

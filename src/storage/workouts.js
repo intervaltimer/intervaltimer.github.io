@@ -49,6 +49,7 @@ export function getOrCreateDefaultWorkout() {
   const defaultWorkout = {
     id: generateId(),
     title: 'Default Workout',
+    completed: 0,
     phases: [
       { kind: 'exercise', title: 'Work', seconds: 10 },
       { kind: 'rest', seconds: 20 },
@@ -63,13 +64,15 @@ export function getOrCreateDefaultWorkout() {
 export function expandWorkoutPhases(workout) {
   const phases = Array.isArray(workout && workout.phases) ? workout.phases : [];
 
-  // Expand groups into repeated child phases based on the `series` value.
+  const isSetPhase = (phase) => phase && (phase.kind === 'set' || phase.kind === 'group');
+
+  // Expand sets into repeated child phases based on the `series` value.
   const expandedPhases = [];
   for (let i = 0; i < phases.length; i += 1) {
     const phase = phases[i];
     if (!phase) continue;
 
-    if (phase.kind === 'group') {
+    if (isSetPhase(phase)) {
       const rawSeries =
         typeof phase.series === 'number' ? phase.series : parseInt(phase.series, 10);
       const series = Number.isFinite(rawSeries) && rawSeries > 0 ? rawSeries : 1;
@@ -78,7 +81,7 @@ export function expandWorkoutPhases(workout) {
       let j = i + 1;
       while (j < phases.length) {
         const child = phases[j];
-        if (!child || child.kind === 'group' || child.ungrouped) break;
+        if (!child || isSetPhase(child) || child.ungrouped) break;
         children.push(child);
         j += 1;
       }
@@ -94,6 +97,10 @@ export function expandWorkoutPhases(workout) {
     }
 
     expandedPhases.push({ ...phase });
+  }
+
+  while (expandedPhases.length > 0 && expandedPhases[expandedPhases.length - 1].kind === 'rest') {
+    expandedPhases.pop();
   }
 
   return expandedPhases;

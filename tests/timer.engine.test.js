@@ -28,7 +28,15 @@ describe('TimerEngine', () => {
   });
 
   it('starts a rest phase after an exercise phase', () => {
-    const engine = TimerEngine.fromWorkout(workout);
+    const engine = TimerEngine.fromWorkout({
+      id: 'w1b',
+      title: 'TestB',
+      phases: [
+        { kind: 'exercise', title: 'Work 1', seconds: 10 },
+        { kind: 'rest', seconds: 5 },
+        { kind: 'exercise', title: 'Work 2', seconds: 8 },
+      ],
+    });
     // finish prepare
     for (let i = 0; i < 10; i++) engine.tick();
     // finish first exercise (10s)
@@ -37,13 +45,31 @@ describe('TimerEngine', () => {
     expect(phase.kind).toBe('rest');
   });
 
+  it('skips a trailing rest at the end of the workout', () => {
+    const engine = TimerEngine.fromWorkout({
+      id: 'w3',
+      title: 'Test3',
+      phases: [
+        { kind: 'exercise', title: 'Work 1', seconds: 10 },
+        { kind: 'rest', seconds: 20 },
+      ],
+    });
+
+    for (let i = 0; i < 10; i++) engine.tick();
+    expect(engine.getCurrentPhase().kind).toBe('exercise');
+
+    for (let i = 0; i < 10; i++) engine.tick();
+    expect(engine.getCurrentPhase()).toBeNull();
+    expect(engine.isComplete()).toBe(true);
+  });
+
   it('speaks upcoming exercise at beginning of prepare and rest phases', () => {
     const w = {
       id: 'w2',
       title: 'Test2',
       phases: [
         { kind: 'exercise', title: 'Work 1', seconds: 10 },
-        { kind: 'rest', seconds: 5 },
+        { kind: 'rest', seconds: 10 },
         { kind: 'exercise', title: 'Work 2', seconds: 8 },
       ],
     };
@@ -57,11 +83,11 @@ describe('TimerEngine', () => {
     engine.tick();
     expect(onSpeak).toHaveBeenCalledWith('Coming up, Work 1 in 10 seconds');
 
-    // Finish prepare (10s) and first exercise (10s)
-    for (let i = 0; i < 20; i++) engine.tick();
+    // Finish prepare (10s), first exercise (10s), and step into the rest phase.
+    for (let i = 0; i < 21; i++) engine.tick();
 
     // On entering rest, announce next exercise
-    expect(onSpeak).toHaveBeenCalledWith('Coming up, Work 2 in 5 seconds');
+    expect(onSpeak).toHaveBeenCalledWith('Coming up, Work 2 in 10 seconds');
   });
 
   it('speaks the exercise title 5 seconds before an exercise start', () => {
@@ -71,7 +97,7 @@ describe('TimerEngine', () => {
     // We call tick 5 times; before the 6th tick, remaining is 5.
     for (let i = 0; i < 5; i++) engine.tick();
     engine.tick();
-    expect(onSpeak).toHaveBeenCalledWith('Work 1');
+    expect(onSpeak).toHaveBeenCalledWith('Get ready');
   });
 
   it('plays low pitched beeping sounds 3,2,1 seconds before the exercise start', () => {
@@ -100,5 +126,36 @@ describe('TimerEngine', () => {
     // Expect another two high beeps: one for exercise end, one for next exercise start (if any)
     // In this case, after exercise is rest, so just exercise-end beep.
     expect(onBeepHigh.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('finishes with a completed state when the last phase ends', () => {
+    const engine = TimerEngine.fromWorkout({
+      id: 'w4',
+      title: 'Test4',
+      phases: [
+        { kind: 'exercise', title: 'Work 1', seconds: 1 },
+      ],
+    });
+
+    for (let i = 0; i < 10; i++) engine.tick();
+    engine.tick();
+
+    expect(engine.getCurrentPhase()).toBeNull();
+    expect(engine.isComplete()).toBe(true);
+  });
+
+  it('speaks well done when the workout completes', () => {
+    const onSpeak = vi.fn();
+    const engine = TimerEngine.fromWorkout({
+      id: 'w5',
+      title: 'Test5',
+      phases: [
+        { kind: 'exercise', title: 'Work 1', seconds: 1 },
+      ],
+    }, { onSpeak });
+
+    for (let i = 0; i < 11; i++) engine.tick();
+
+    expect(onSpeak).toHaveBeenCalledWith('Well done!');
   });
 });

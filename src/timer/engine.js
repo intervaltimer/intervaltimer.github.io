@@ -25,7 +25,11 @@ export class TimerEngine {
   }
 
   isLastPhase() {
-    return this.currentPhaseIndex === this.phases.length - 1;
+    return this.phases.length > 0 && this.currentPhaseIndex >= this.phases.length - 1;
+  }
+
+  isComplete() {
+    return this.currentPhaseIndex >= this.phases.length;
   }
 
   start() {
@@ -101,6 +105,13 @@ export class TimerEngine {
         }
 
         this.#onPhaseEnter();
+        this.#emitPhaseChange();
+      } else {
+        this.currentPhaseIndex = this.phases.length;
+        this.remainingSeconds = 0;
+        if (this.callbacks.onSpeak) {
+          this.callbacks.onSpeak('Well done!');
+        }
         this.#emitPhaseChange();
       }
     }

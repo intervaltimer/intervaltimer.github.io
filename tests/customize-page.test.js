@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('../src/storage/workouts.js', () => ({
   getWorkout: vi.fn(),
   upsertWorkout: vi.fn(),
+  summarizeWorkout: vi.fn(() => ({ names: [], totalSeconds: 0 })),
 }));
 
 vi.mock('../src/router.js', () => ({
@@ -28,132 +29,44 @@ describe('customize page', () => {
     vi.restoreAllMocks();
   });
 
-  it('should display the list of phases', () => {
+  it("should move a standalone rest before a set when clicking the 'move up' button", () => {
     const workout = {
       id: 'w1',
       title: 'T',
       phases: [
-        { kind: 'exercise', title: 'A', seconds: 10 },
-        { kind: 'rest', seconds: 5 },
+        { kind: 'set', series: 1 },
+        { kind: 'rest', seconds: 10, ungrouped: true },
       ],
     };
     getWorkout.mockReturnValue(workout);
 
     const el = createCustomizePage({ 'workout-id': 'w1' });
-    const cards = el.querySelectorAll('.card');
-    expect(cards.length).toBe(2);
+    const standaloneCard = el.querySelectorAll('.card')[1];
+    standaloneCard.querySelector('.phase-menu-button').click();
+    standaloneCard.querySelector('.phase-menu-item--move-up').click();
+
+    expect(el.workout.phases[0]).toEqual({ kind: 'rest', seconds: 10, ungrouped: true });
+    expect(el.workout.phases[1]).toEqual({ kind: 'set', series: 1 });
   });
 
-  it('should save upon input change to the local storage', () => {
+  it("should move a standalone rest after a set when clicking the 'move down' button", () => {
     const workout = {
       id: 'w1',
       title: 'T',
-      phases: [{ kind: 'exercise', title: 'A', seconds: 10 }],
+      phases: [
+        { kind: 'rest', seconds: 10, ungrouped: true },
+        { kind: 'set', series: 1 },
+      ],
     };
     getWorkout.mockReturnValue(workout);
 
     const el = createCustomizePage({ 'workout-id': 'w1' });
-    const titleInput = el.querySelector('#workout-title');
-    titleInput.value = 'Updated';
-    titleInput.dispatchEvent(new Event('input'));
+    const standaloneCard = el.querySelectorAll('.card')[0];
+    standaloneCard.querySelector('.phase-menu-button').click();
+    standaloneCard.querySelector('.phase-menu-item--move-down').click();
 
-    expect(upsertWorkout).toHaveBeenCalled();
-  });
-
-  it('should add an exercise', () => {
-    const workout = { id: 'w1', title: 'T', phases: [] };
-    getWorkout.mockReturnValue(workout);
-
-    const el = createCustomizePage({ 'workout-id': 'w1' });
-    const btnAdd = el.querySelector('#btn-add-exercise');
-    btnAdd.click();
-
-    const cards = el.querySelectorAll('.card');
-    expect(cards.length).toBe(1);
-  });
-
-  it('should duplicate an exercise and send it at the end of the list', () => {
-    const workout = {
-      id: 'w1',
-      title: 'T',
-      phases: [{ kind: 'exercise', title: 'A', seconds: 10 }],
-    };
-    getWorkout.mockReturnValue(workout);
-
-    const el = createCustomizePage({ 'workout-id': 'w1' });
-    const menuButton = el.querySelector('.card .phase-menu-button');
-    menuButton.click();
-    const duplicateBtn = el.querySelector('.card .phase-menu-item--duplicate');
-    duplicateBtn.click();
-
-    const cards = el.querySelectorAll('.card');
-    expect(cards.length).toBe(2);
-  });
-
-  it('should delete an exercise', () => {
-    const workout = {
-      id: 'w1',
-      title: 'T',
-      phases: [{ kind: 'exercise', title: 'A', seconds: 10 }],
-    };
-    getWorkout.mockReturnValue(workout);
-
-    const el = createCustomizePage({ 'workout-id': 'w1' });
-    const menuButton = el.querySelector('.card .phase-menu-button');
-    menuButton.click();
-    const deleteBtn = el.querySelector('.card .phase-menu-item--delete');
-    deleteBtn.click();
-
-    const cards = el.querySelectorAll('.card');
-    expect(cards.length).toBe(0);
-  });
-
-  it('should create a rest', () => {
-    const workout = { id: 'w1', title: 'T', phases: [] };
-    getWorkout.mockReturnValue(workout);
-
-    const el = createCustomizePage({ 'workout-id': 'w1' });
-    const btnAdd = el.querySelector('#btn-add-rest');
-    btnAdd.click();
-
-    const cards = el.querySelectorAll('.card');
-    expect(cards.length).toBe(1);
-  });
-
-  it('should duplicate a rest and send it at the end of the list', () => {
-    const workout = {
-      id: 'w1',
-      title: 'T',
-      phases: [{ kind: 'rest', seconds: 5 }],
-    };
-    getWorkout.mockReturnValue(workout);
-
-    const el = createCustomizePage({ 'workout-id': 'w1' });
-    const menuButton = el.querySelector('.card .phase-menu-button');
-    menuButton.click();
-    const copyBtn = el.querySelector('.card .phase-menu-item--duplicate');
-    copyBtn.click();
-
-    const cards = el.querySelectorAll('.card');
-    expect(cards.length).toBe(2);
-  });
-
-  it('should delete a rest', () => {
-    const workout = {
-      id: 'w1',
-      title: 'T',
-      phases: [{ kind: 'rest', seconds: 5 }],
-    };
-    getWorkout.mockReturnValue(workout);
-
-    const el = createCustomizePage({ 'workout-id': 'w1' });
-    const menuButton = el.querySelector('.card .phase-menu-button');
-    menuButton.click();
-    const deleteBtn = el.querySelector('.card .phase-menu-item--delete');
-    deleteBtn.click();
-
-    const cards = el.querySelectorAll('.card');
-    expect(cards.length).toBe(0);
+    expect(el.workout.phases[0]).toEqual({ kind: 'set', series: 1 });
+    expect(el.workout.phases[1]).toEqual({ kind: 'rest', seconds: 10, ungrouped: true });
   });
 
   it('should go back to the timer with the current workout as state', () => {
@@ -165,8 +78,7 @@ describe('customize page', () => {
     getWorkout.mockReturnValue(workout);
 
     const el = createCustomizePage({ 'workout-id': 'w1' });
-    const btnBack = el.querySelector('#btn-back');
-    btnBack.click();
+    el.querySelector('#btn-back').click();
 
     expect(navigateTo).toHaveBeenCalledWith(ROUTES.TIMER, 'w1');
   });
@@ -180,9 +92,353 @@ describe('customize page', () => {
     getWorkout.mockReturnValue(workout);
 
     const el = createCustomizePage({ 'workout-id': 'w1' });
-    const btnBackTop = el.querySelector('#btn-back-top');
-    btnBackTop.click();
+    el.querySelector('#btn-back-top').click();
 
     expect(navigateTo).toHaveBeenCalledWith(ROUTES.TIMER, 'w1');
+  });
+
+  describe('standalone rests', () => {
+    it('should display the standalone rests', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'rest', seconds: 10, ungrouped: true },
+          { kind: 'rest', seconds: 5, ungrouped: true },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      expect(el.querySelectorAll('.card').length).toBe(2);
+    });
+
+    it('should save upon input change to the local storage', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [{ kind: 'rest', seconds: 10, ungrouped: true }],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const titleInput = el.querySelector('#workout-title');
+      titleInput.value = 'Updated';
+      titleInput.dispatchEvent(new Event('input'));
+
+      expect(upsertWorkout).toHaveBeenCalled();
+    });
+
+    it('should create a rest', () => {
+      const workout = { id: 'w1', title: 'T', phases: [] };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      el.querySelector('#btn-add-rest').click();
+
+      expect(el.querySelectorAll('.card').length).toBe(1);
+    });
+
+    it('should duplicate a rest and send it at the end of the list', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [{ kind: 'rest', seconds: 5, ungrouped: true }],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      el.querySelector('.card .phase-menu-button').click();
+      el.querySelector('.card .phase-menu-item--duplicate').click();
+
+      expect(el.querySelectorAll('.card').length).toBe(2);
+    });
+
+    it('should delete a rest', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [{ kind: 'rest', seconds: 5, ungrouped: true }],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      el.querySelector('.card .phase-menu-button').click();
+      el.querySelector('.card .phase-menu-item--delete').click();
+
+      expect(el.querySelectorAll('.card').length).toBe(0);
+    });
+
+    it('should move a rest up and down', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'rest', seconds: 10, ungrouped: true },
+          { kind: 'rest', seconds: 5, ungrouped: true },
+          { kind: 'rest', seconds: 20, ungrouped: true },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const middleCard = el.querySelectorAll('.card')[1];
+      middleCard.querySelector('.phase-menu-button').click();
+      middleCard.querySelector('.phase-menu-item--move-up').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'rest', seconds: 5, ungrouped: true });
+      expect(el.workout.phases[1]).toEqual({ kind: 'rest', seconds: 10, ungrouped: true });
+      expect(el.workout.phases[2]).toEqual({ kind: 'rest', seconds: 20, ungrouped: true });
+
+      const firstCard = el.querySelectorAll('.card')[0];
+      firstCard.querySelector('.phase-menu-button').click();
+      firstCard.querySelector('.phase-menu-item--move-down').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'rest', seconds: 10, ungrouped: true });
+      expect(el.workout.phases[1]).toEqual({ kind: 'rest', seconds: 5, ungrouped: true });
+      expect(el.workout.phases[2]).toEqual({ kind: 'rest', seconds: 20, ungrouped: true });
+    });
+
+    it('should not move the first rest up', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'rest', seconds: 10, ungrouped: true },
+          { kind: 'rest', seconds: 5, ungrouped: true },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const firstCard = el.querySelectorAll('.card')[0];
+      firstCard.querySelector('.phase-menu-button').click();
+      firstCard.querySelector('.phase-menu-item--move-up').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'rest', seconds: 10, ungrouped: true });
+      expect(el.workout.phases[1]).toEqual({ kind: 'rest', seconds: 5, ungrouped: true });
+    });
+
+    it('should not move the last rest down', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'rest', seconds: 10, ungrouped: true },
+          { kind: 'rest', seconds: 5, ungrouped: true },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const lastCard = el.querySelectorAll('.card')[1];
+      lastCard.querySelector('.phase-menu-button').click();
+      lastCard.querySelector('.phase-menu-item--move-down').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'rest', seconds: 10, ungrouped: true });
+      expect(el.workout.phases[1]).toEqual({ kind: 'rest', seconds: 5, ungrouped: true });
+    });
+  });
+
+  describe('set entries', () => {
+    it('should add an exercise to a set', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'set', series: 1 },
+          { kind: 'exercise', title: 'A', seconds: 10 },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const setCard = el.querySelector('.phase-row--set');
+      setCard.querySelector('.phase-menu-button').click();
+      setCard.querySelector('.phase-menu-item--add-exercise').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'set', series: 1 });
+      expect(el.workout.phases[1]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+      expect(el.workout.phases[2]).toEqual({ kind: 'exercise', title: 'Work', seconds: 20 });
+    });
+
+    it("should duplicate an exercise within a set and send it at the end of the set's children", () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'set', series: 1 },
+          { kind: 'exercise', title: 'A', seconds: 10 },
+          { kind: 'rest', seconds: 5 },
+          { kind: 'rest', seconds: 20, ungrouped: true },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const innerCards = el.querySelectorAll('.card--inner-group');
+      innerCards[0].querySelector('.phase-menu-button').click();
+      innerCards[0].querySelector('.phase-menu-item--duplicate').click();
+
+      expect(el.workout.phases).toEqual([
+        { kind: 'set', series: 1 },
+        { kind: 'exercise', title: 'A', seconds: 10 },
+        { kind: 'rest', seconds: 5 },
+        { kind: 'exercise', title: 'A', seconds: 10 },
+        { kind: 'rest', seconds: 20, ungrouped: true },
+      ]);
+    })
+
+    it('should add a rest to a set', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'set', series: 1 },
+          { kind: 'exercise', title: 'A', seconds: 10 },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const setCard = el.querySelector('.phase-row--set');
+      setCard.querySelector('.phase-menu-button').click();
+      setCard.querySelector('.phase-menu-item--add-rest').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'set', series: 1 });
+      expect(el.workout.phases[1]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+      expect(el.workout.phases[2]).toEqual({ kind: 'rest', seconds: 20 });
+    });
+
+    it('should delete an entry from a set', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'set', series: 1 },
+          { kind: 'exercise', title: 'A', seconds: 10 },
+          { kind: 'exercise', title: 'B', seconds: 20 },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const innerCards = el.querySelectorAll('.card--inner-group');
+      innerCards[0].querySelector('.phase-menu-button').click();
+      innerCards[0].querySelector('.phase-menu-item--delete').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'set', series: 1 });
+      expect(el.workout.phases[1]).toEqual({ kind: 'exercise', title: 'B', seconds: 20 });
+      expect(el.workout.phases.length).toBe(2);
+    });
+
+    it('should move an entry up within a set', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'set', series: 1 },
+          { kind: 'exercise', title: 'A', seconds: 10 },
+          { kind: 'rest', seconds: 5 },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const innerCards = el.querySelectorAll('.card--inner-group');
+      innerCards[1].querySelector('.phase-menu-button').click();
+      innerCards[1].querySelector('.phase-menu-item--move-up').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'set', series: 1 });
+      expect(el.workout.phases[1]).toEqual({ kind: 'rest', seconds: 5 });
+      expect(el.workout.phases[2]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+    });
+
+    it('should move an entry down within a set', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'set', series: 1 },
+          { kind: 'exercise', title: 'A', seconds: 10 },
+          { kind: 'rest', seconds: 5 },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const innerCards = el.querySelectorAll('.card--inner-group');
+      innerCards[0].querySelector('.phase-menu-button').click();
+      innerCards[0].querySelector('.phase-menu-item--move-down').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'set', series: 1 });
+      expect(el.workout.phases[1]).toEqual({ kind: 'rest', seconds: 5 });
+      expect(el.workout.phases[2]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+    });
+
+    it('should not move the first entry up within a set', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'set', series: 1 },
+          { kind: 'exercise', title: 'A', seconds: 10 },
+          { kind: 'rest', seconds: 5 },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const innerCards = el.querySelectorAll('.card--inner-group');
+      innerCards[0].querySelector('.phase-menu-button').click();
+      innerCards[0].querySelector('.phase-menu-item--move-up').click();
+
+      expect(el.workout.phases[1]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+      expect(el.workout.phases[2]).toEqual({ kind: 'rest', seconds: 5 });
+    });
+
+    it('should not move the last entry down within a set', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'set', series: 1 },
+          { kind: 'exercise', title: 'A', seconds: 10 },
+          { kind: 'rest', seconds: 5 },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const innerCards = el.querySelectorAll('.card--inner-group');
+      innerCards[1].querySelector('.phase-menu-button').click();
+      innerCards[1].querySelector('.phase-menu-item--move-down').click();
+
+      expect(el.workout.phases[1]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+      expect(el.workout.phases[2]).toEqual({ kind: 'rest', seconds: 5 });
+    });
+
+    it('should duplicate a set along with its children', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'set', series: 2 },
+          { kind: 'exercise', title: 'A', seconds: 10 },
+          { kind: 'rest', seconds: 5 },
+          { kind: 'rest', seconds: 20, ungrouped: true },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const setMenuButton = el.querySelector('.phase-row--set .phase-menu-button');
+      setMenuButton.click();
+      const duplicateBtn = el.querySelector('.phase-row--set .phase-menu-item--duplicate');
+      duplicateBtn.click();
+
+      expect(el.querySelectorAll('.phase-row--set').length).toBe(2);
+      expect(el.querySelectorAll('.card--inner-group').length).toBe(4);
+    });
   });
 });
