@@ -51,10 +51,14 @@ export function getOrCreateDefaultWorkout() {
     title: 'Default Workout',
     completed: 0,
     phases: [
-      { kind: 'exercise', title: 'Work', seconds: 10 },
-      { kind: 'rest', seconds: 20 },
-      { kind: 'exercise', title: 'Work', seconds: 10 },
-      { kind: 'rest', seconds: 20 },
+      {
+        kind: 'set',
+        series: 2,
+        phases: [
+          { kind: 'exercise', title: 'Work', seconds: 10 },
+          { kind: 'rest', seconds: 20 },
+        ],
+      },
     ],
   };
   workouts = [defaultWorkout];
@@ -77,14 +81,8 @@ export function expandWorkoutPhases(workout) {
         typeof phase.series === 'number' ? phase.series : parseInt(phase.series, 10);
       const series = Number.isFinite(rawSeries) && rawSeries > 0 ? rawSeries : 1;
 
-      const children = [];
-      let j = i + 1;
-      while (j < phases.length) {
-        const child = phases[j];
-        if (!child || isSetPhase(child) || child.ungrouped) break;
-        children.push(child);
-        j += 1;
-      }
+      // Only support the nested format where children live inside the set object.
+      const children = Array.isArray(phase.phases) ? phase.phases : [];
 
       for (let s = 0; s < series; s += 1) {
         for (const child of children) {
@@ -92,7 +90,6 @@ export function expandWorkoutPhases(workout) {
         }
       }
 
-      i = j - 1;
       continue;
     }
 

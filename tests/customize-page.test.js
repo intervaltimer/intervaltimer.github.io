@@ -246,8 +246,11 @@ describe('customize page', () => {
         id: 'w1',
         title: 'T',
         phases: [
-          { kind: 'set', series: 1 },
-          { kind: 'exercise', title: 'A', seconds: 10 },
+          {
+            kind: 'set',
+            series: 1,
+            phases: [{ kind: 'exercise', title: 'A', seconds: 10 }],
+          },
         ],
       };
       getWorkout.mockReturnValue(workout);
@@ -267,9 +270,14 @@ describe('customize page', () => {
         id: 'w1',
         title: 'T',
         phases: [
-          { kind: 'set', series: 1 },
-          { kind: 'exercise', title: 'A', seconds: 10 },
-          { kind: 'rest', seconds: 5 },
+          {
+            kind: 'set',
+            series: 1,
+            phases: [
+              { kind: 'exercise', title: 'A', seconds: 10 },
+              { kind: 'rest', seconds: 5 },
+            ],
+          },
           { kind: 'rest', seconds: 20, ungrouped: true },
         ],
       };
@@ -294,8 +302,11 @@ describe('customize page', () => {
         id: 'w1',
         title: 'T',
         phases: [
-          { kind: 'set', series: 1 },
-          { kind: 'exercise', title: 'A', seconds: 10 },
+          {
+            kind: 'set',
+            series: 1,
+            phases: [{ kind: 'exercise', title: 'A', seconds: 10 }],
+          },
         ],
       };
       getWorkout.mockReturnValue(workout);
@@ -315,9 +326,14 @@ describe('customize page', () => {
         id: 'w1',
         title: 'T',
         phases: [
-          { kind: 'set', series: 1 },
-          { kind: 'exercise', title: 'A', seconds: 10 },
-          { kind: 'exercise', title: 'B', seconds: 20 },
+          {
+            kind: 'set',
+            series: 1,
+            phases: [
+              { kind: 'exercise', title: 'A', seconds: 10 },
+              { kind: 'exercise', title: 'B', seconds: 20 },
+            ],
+          },
         ],
       };
       getWorkout.mockReturnValue(workout);
@@ -337,9 +353,14 @@ describe('customize page', () => {
         id: 'w1',
         title: 'T',
         phases: [
-          { kind: 'set', series: 1 },
-          { kind: 'exercise', title: 'A', seconds: 10 },
-          { kind: 'rest', seconds: 5 },
+          {
+            kind: 'set',
+            series: 1,
+            phases: [
+              { kind: 'exercise', title: 'A', seconds: 10 },
+              { kind: 'rest', seconds: 5 },
+            ],
+          },
         ],
       };
       getWorkout.mockReturnValue(workout);
@@ -359,9 +380,14 @@ describe('customize page', () => {
         id: 'w1',
         title: 'T',
         phases: [
-          { kind: 'set', series: 1 },
-          { kind: 'exercise', title: 'A', seconds: 10 },
-          { kind: 'rest', seconds: 5 },
+          {
+            kind: 'set',
+            series: 1,
+            phases: [
+              { kind: 'exercise', title: 'A', seconds: 10 },
+              { kind: 'rest', seconds: 5 },
+            ],
+          },
         ],
       };
       getWorkout.mockReturnValue(workout);
@@ -381,9 +407,14 @@ describe('customize page', () => {
         id: 'w1',
         title: 'T',
         phases: [
-          { kind: 'set', series: 1 },
-          { kind: 'exercise', title: 'A', seconds: 10 },
-          { kind: 'rest', seconds: 5 },
+          {
+            kind: 'set',
+            series: 1,
+            phases: [
+              { kind: 'exercise', title: 'A', seconds: 10 },
+              { kind: 'rest', seconds: 5 },
+            ],
+          },
         ],
       };
       getWorkout.mockReturnValue(workout);
@@ -402,9 +433,14 @@ describe('customize page', () => {
         id: 'w1',
         title: 'T',
         phases: [
-          { kind: 'set', series: 1 },
-          { kind: 'exercise', title: 'A', seconds: 10 },
-          { kind: 'rest', seconds: 5 },
+          {
+            kind: 'set',
+            series: 1,
+            phases: [
+              { kind: 'exercise', title: 'A', seconds: 10 },
+              { kind: 'rest', seconds: 5 },
+            ],
+          },
         ],
       };
       getWorkout.mockReturnValue(workout);
@@ -423,9 +459,14 @@ describe('customize page', () => {
         id: 'w1',
         title: 'T',
         phases: [
-          { kind: 'set', series: 2 },
-          { kind: 'exercise', title: 'A', seconds: 10 },
-          { kind: 'rest', seconds: 5 },
+          {
+            kind: 'set',
+            series: 2,
+            phases: [
+              { kind: 'exercise', title: 'A', seconds: 10 },
+              { kind: 'rest', seconds: 5 },
+            ],
+          },
           { kind: 'rest', seconds: 20, ungrouped: true },
         ],
       };
@@ -440,5 +481,32 @@ describe('customize page', () => {
       expect(el.querySelectorAll('.phase-row--set').length).toBe(2);
       expect(el.querySelectorAll('.card--inner-group').length).toBe(4);
     });
+  });
+
+  it('should render a saved set with exercise, rest, exercise and rest as one set on the customize page', () => {
+    const workout = {
+      id: 'w_saved',
+      title: 'Saved workout',
+      completed: 0,
+      phases: [
+        {
+          kind: 'set',
+          series: 1,
+          phases: [
+            { kind: 'exercise', title: 'Exercise 1', seconds: 10 },
+            { kind: 'rest', seconds: 5 },
+            { kind: 'exercise', title: 'Exercise 2', seconds: 20 },
+            { kind: 'rest', seconds: 8 },
+          ],
+        },
+      ],
+    };
+
+    getWorkout.mockReturnValue(workout);
+
+    const el = createCustomizePage({ 'workout-id': 'w_saved' });
+
+    expect(el.querySelectorAll('.phase-row--set')).toHaveLength(1);
+    expect(el.querySelectorAll('.card--inner-group')).toHaveLength(4);
   });
 });

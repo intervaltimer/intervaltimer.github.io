@@ -33,44 +33,50 @@ class CustomizePage extends HTMLElement {
 
   #normalizeWorkout(workout) {
     const normalized = workout || { phases: [] };
-    const phases = Array.isArray(normalized.phases) ? normalized.phases : [];
+    const rawPhases = Array.isArray(normalized.phases) ? normalized.phases : [];
     const nextPhases = [];
-    let inSet = false;
 
-    for (const phase of phases) {
+    for (const phase of rawPhases) {
       if (!phase) continue;
 
-      if (phase.kind === 'group') {
-        nextPhases.push({ ...phase, kind: 'set' });
-        inSet = true;
-        continue;
-      }
+      // Sets (and legacy "group") are stored with nested child phases.
+      if (phase.kind === 'set' || phase.kind === 'group') {
+        const rawSeries =
+          typeof phase.series === 'number' ? phase.series : parseInt(phase.series, 10);
+        const series = Number.isFinite(rawSeries) && rawSeries > 0 ? rawSeries : 1;
 
-      if (phase.kind === 'set') {
-        nextPhases.push({ ...phase });
-        inSet = true;
-        continue;
-      }
+        nextPhases.push({ kind: 'set', series });
 
-      if (phase.kind === 'rest' && phase.ungrouped) {
-        nextPhases.push({ ...phase });
-        inSet = false;
-        continue;
-      }
-
-      if (phase.kind === 'exercise') {
-        if (!inSet) {
-          nextPhases.push({ kind: 'set', series: 1 });
-          inSet = true;
+        const children = Array.isArray(phase.phases) ? phase.phases : [];
+        for (const child of children) {
+          if (!child) continue;
+          if (child.kind === 'exercise' || child.kind === 'rest') {
+            const cloned = { ...child };
+            delete cloned.ungrouped;
+            nextPhases.push(cloned);
+          }
         }
+        continue;
+      }
+
+      // Top-level rests are standalone (outside any set).
+      if (phase.kind === 'rest') {
+        const rest = { ...phase, ungrouped: true };
+        nextPhases.push(rest);
+        continue;
+      }
+
+      // Bare top-level exercises are wrapped into their own set for editing.
+      if (phase.kind === 'exercise') {
+        nextPhases.push({ kind: 'set', series: 1 });
         const cloned = { ...phase };
         delete cloned.ungrouped;
         nextPhases.push(cloned);
         continue;
       }
 
+      // Any other phase types are passed through as-is.
       nextPhases.push({ ...phase });
-      inSet = false;
     }
 
     normalized.phases = nextPhases;
@@ -552,12 +558,58 @@ class CustomizePage extends HTMLElement {
   }
 
   #save() {
-    upsertWorkout(this.workout);
+    const workoutToStore = this.#buildStoredWorkout();
+    upsertWorkout(workoutToStore);
+  }
+
+  #buildStoredWorkout() {
+    const phases = this.workout?.phases || [];
+    const storedPhases = [];
+
+    for (let i = 0; i < phases.length; i += 1) {
+      const phase = phases[i];
+      if (!phase) continue;
+
+      if (phase.kind === 'set' || phase.kind === 'group') {
+        const setPhase = {
+          kind: 'set',
+          series: phase.series || 1,
+          phases: [],
+        };
+
+        let j = i + 1;
+        while (
+          j < phases.length &&
+          phases[j].kind !== 'set' &&
+          phases[j].kind !== 'group' &&
+          !phases[j].ungrouped
+        ) {
+          const child = { ...phases[j] };
+          delete child.ungrouped;
+          setPhase.phases.push(child);
+          j += 1;
+        }
+
+        storedPhases.push(setPhase);
+        i = j - 1;
+      } else {
+        // Standalone phases (e.g. rests with `ungrouped`) stay at top level.
+        storedPhases.push({ ...phase });
+      }
+    }
+
+    return {
+      id: this.workout.id,
+      title: this.workout.title,
+      completed: this.workout.completed || 0,
+      phases: storedPhases,
+    };
   }
 
   #renderSummary() {
     if (!this._summaryEl || !this.workout) return;
-    const summary = summarizeWorkout(this.workout);
+    const workoutForSummary = this.#buildStoredWorkout();
+    const summary = summarizeWorkout(workoutForSummary);
     const namesText = summary.names.join(', ') || 'No exercises yet';
     const minutes = Math.floor(summary.totalSeconds / 60);
     const seconds = summary.totalSeconds % 60;

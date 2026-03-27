@@ -234,10 +234,24 @@ describe('timer page', () => {
       id: 'w1',
       title: 'T',
       phases: [
-        { kind: 'set', series: 1 },
-        { kind: 'exercise', title: 'Work A', seconds: 10 },
-        { kind: 'rest', seconds: 5 },
-        { kind: 'exercise', title: 'Work B', seconds: 10 },
+        {
+          kind: 'set',
+          series: 2,
+          phases: [
+            { kind: 'exercise', title: 'Work A', seconds: 10 },
+            { kind: 'rest', seconds: 5 },
+            { kind: 'exercise', title: 'Work B', seconds: 10 },
+          ],
+        },
+        {
+          kind: 'set',
+          series: 3,
+          phases: [
+            { kind: 'exercise', title: 'Work A2', seconds: 10 },
+            { kind: 'rest', seconds: 5 },
+            { kind: 'exercise', title: 'Work B2', seconds: 10 },
+          ],
+        },
       ],
     };
     getWorkout.mockReturnValue(workout);
@@ -250,16 +264,16 @@ describe('timer page', () => {
     expect(el.querySelectorAll('.timer-progress-card').length).toBe(2);
     expect(el.querySelector('.timer-progress-card__label').textContent).toBe('Rep');
     expect(el.querySelectorAll('.timer-progress-card__label')[1].textContent).toBe('Set');
-    expect(rep()).toBe('0/2');
-    expect(set()).toBe('1/1');
+    expect(rep()).toBe('0/4');
+    expect(set()).toBe('1/2');
 
     btnNext.click();
-    expect(rep()).toBe('0/2');
-    expect(set()).toBe('1/1');
+    expect(rep()).toBe('0/4');
+    expect(set()).toBe('1/2');
 
     btnNext.click();
-    expect(rep()).toBe('1/2');
-    expect(set()).toBe('1/1');
+    expect(rep()).toBe('1/4');
+    expect(set()).toBe('1/2');
   });
 
   it("should show Rep and Set cards for the workout's remaining sets", () => {
@@ -267,10 +281,16 @@ describe('timer page', () => {
       id: 'w1',
       title: 'T',
       phases: [
-        { kind: 'set', series: 1 },
-        { kind: 'exercise', title: 'Work A', seconds: 10 },
-        { kind: 'set', series: 1 },
-        { kind: 'exercise', title: 'Work B', seconds: 10 },
+        {
+          kind: 'set',
+          series: 1,
+          phases: [{ kind: 'exercise', title: 'Work A', seconds: 10 }],
+        },
+        {
+          kind: 'set',
+          series: 1,
+          phases: [{ kind: 'exercise', title: 'Work B', seconds: 10 }],
+        },
       ],
     };
     getWorkout.mockReturnValue(workout);

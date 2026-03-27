@@ -489,15 +489,7 @@ class TimerPage extends HTMLElement {
       if (phase.kind === 'set' || phase.kind === 'group') {
         const rawSeries = typeof phase.series === 'number' ? phase.series : parseInt(phase.series, 10);
         const series = Number.isFinite(rawSeries) && rawSeries > 0 ? rawSeries : 1;
-
-        const children = [];
-        let childIndex = i + 1;
-        while (childIndex < phases.length) {
-          const child = phases[childIndex];
-          if (!child || child.kind === 'set' || child.kind === 'group' || child.ungrouped) break;
-          children.push(child);
-          childIndex += 1;
-        }
+        const children = Array.isArray(phase.phases) ? phase.phases : [];
 
         const expandedPhases = [];
         for (let repeat = 0; repeat < series; repeat += 1) {
@@ -520,7 +512,7 @@ class TimerPage extends HTMLElement {
         });
 
         expandedIndex = endIndex;
-        i = childIndex;
+        i += 1;
         continue;
       }
 

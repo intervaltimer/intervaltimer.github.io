@@ -30,7 +30,9 @@ describe('workouts storage', () => {
 
   it('creates a default workout when none exist', () => {
     const w = getOrCreateDefaultWorkout();
-    expect(w.phases).toHaveLength(4);
+    expect(w.phases).toHaveLength(1);
+    expect(w.phases[0]).toMatchObject({ kind: 'set', series: 2 });
+    expect(Array.isArray(w.phases[0].phases)).toBe(true);
     expect(loadWorkouts()).toHaveLength(1);
   });
 
