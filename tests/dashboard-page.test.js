@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock router before importing the component
 vi.mock('../src/router.js', () => ({
-  ROUTES: { DASHBOARD: 'dashboard', TIMER: 'timer', CUSTOMIZE: 'customize' },
+  ROUTES: { DASHBOARD: 'dashboard', TIMER: 'timer', CUSTOMIZE: 'customize', SETTINGS: 'settings' },
   navigateTo: vi.fn(),
 }));
 

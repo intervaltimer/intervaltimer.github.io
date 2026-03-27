@@ -5,6 +5,7 @@ const ROUTES = {
   DASHBOARD: 'dashboard',
   TIMER: 'timer',
   CUSTOMIZE: 'customize',
+  SETTINGS: 'settings',
 };
 
 function parseHash() {
@@ -25,13 +26,19 @@ export function attachRouter(appRoot) {
   function renderFromLocation() {
     const { page, workoutId } = parseHash();
 
-    const hideHeader = page === ROUTES.TIMER || page === ROUTES.CUSTOMIZE;
+    const showHeader = page === ROUTES.HOME || page === ROUTES.DASHBOARD;
     const lockShell = page === ROUTES.TIMER;
 
-    if (hideHeader) {
+    if (!showHeader) {
       appRoot.classList.add('app-shell--no-header');
     } else {
       appRoot.classList.remove('app-shell--no-header');
+    }
+
+    if (typeof appRoot.setHeader === 'function') {
+      appRoot.setHeader({
+        showSettingsButton: page === ROUTES.DASHBOARD,
+      });
     }
 
     if (lockShell) {
@@ -85,6 +92,12 @@ export function attachRouter(appRoot) {
       }
       const el = document.createElement('customize-page');
       el.setAttribute('workout-id', id);
+      appRoot.setPage(el);
+      return;
+    }
+
+    if (page === ROUTES.SETTINGS) {
+      const el = document.createElement('settings-page');
       appRoot.setPage(el);
       return;
     }

@@ -96,7 +96,7 @@ class CustomizePage extends HTMLElement {
           <span>Timer</span>
         </button>
       </div>
-      <h2 class="app-page-title app-page-title--center">Customize workout</h2>
+      <h2 class="app-page-title">Customize workout</h2>
       <div class="app-column">
         <input id="workout-title" class="app-input" placeholder="Workout title" />
         <div id="phases" class="phases-list"></div>

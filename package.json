@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "vitest",
-    "dev": "serve -l 4173 ."
+    "predev": "npm run update-version",
+    "dev": "serve -l 4173 .",
+    "update-version": "node ./scripts/update-version.mjs"
   },
   "keywords": [],
   "author": "",

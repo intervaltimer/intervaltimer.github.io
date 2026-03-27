@@ -108,7 +108,7 @@ class TimerPage extends HTMLElement {
           <span>Dashboard</span>
         </button>
       </div>
-      <h2 class="app-page-title app-page-title--center" id="timer-workout-title"></h2>
+      <h2 class="app-page-title" id="timer-workout-title"></h2>
       <div class="timer-main-display">
         <div id="timer-phase-label" class="timer-phase-label"></div>
         <div id="timer-time" class="timer-time"></div>

@@ -69,6 +69,17 @@ button:active {
   flex: 1;
 }
 
+.app-shell__header {
+  margin-bottom: 16px;
+}
+
+.app-shell__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing);
+}
+
 .app-shell__inner > main {
   flex: 1;
   min-height: 0;
@@ -131,7 +142,7 @@ button:active {
 .app-title {
   font-size: 2.54rem;
   font-weight: 600;
-  margin: 0 0 16px;
+  margin: 0;
   font-family: 'Bebas Neue', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -143,16 +154,10 @@ button:active {
 
 .app-button,
 .icon-button {
-.app-page-title--center {
-  text-align: center;
-}
   appearance: none;
   border: 1px solid var(--accent-color);
   background: transparent;
   color: var(--accent-color);
-.app-header-row {
-  margin-bottom: 8px;
-}
   border-radius: var(--border-radius);
   padding: 8px 14px;
   cursor: pointer;
@@ -160,6 +165,14 @@ button:active {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.app-page-title--center {
+  text-align: center;
+}
+
+.app-header-row {
+  margin-bottom: 8px;
 }
 
 .app-button:active,
@@ -240,6 +253,13 @@ button:active {
   align-items: center;
 }
 
+.app-shell__header-action {
+  justify-content: center;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 8px;
+}
+
 .dashboard-card-menu-button {
   border: none;
   background: transparent;
@@ -281,6 +301,29 @@ button:active {
 
 .dashboard-card-menu-item:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.settings-page {
+  flex: 1;
+  min-height: 100%;
+}
+
+.settings-page__body {
+  flex: 1;
+  min-height: 240px;
+}
+
+.settings-page__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.settings-page__version {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  opacity: 0.72;
 }
 
 .dashboard-card .card-title {
