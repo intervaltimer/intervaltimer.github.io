@@ -483,6 +483,121 @@ describe('customize page', () => {
     });
   });
 
+  it("should move a set up", () => {
+    const workout = {
+      id: 'w1',
+      title: 'T',
+      phases: [
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'A', seconds: 10 }] },
+        { kind: 'set', series: 2, phases: [{ kind: 'exercise', title: 'B', seconds: 20 }] },
+        { kind: 'rest', seconds: 30, ungrouped: true },
+      ],
+    };
+    getWorkout.mockReturnValue(workout);
+
+    const el = createCustomizePage({ 'workout-id': 'w1' });
+    const secondSetButton = el.querySelectorAll('.phase-row--set')[1].querySelector('.phase-menu-button');
+    secondSetButton.click();
+    el.querySelectorAll('.phase-row--set')[1].querySelector('.phase-menu-item--move-up').click();
+
+    // Expect the whole set (marker + children) to be moved up
+    expect(el.workout.phases[0]).toEqual({ kind: 'set', series: 2 });
+    expect(el.workout.phases[1]).toEqual({ kind: 'exercise', title: 'B', seconds: 20 });
+    expect(el.workout.phases[2]).toEqual({ kind: 'set', series: 1 });
+    expect(el.workout.phases[3]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+    expect(el.workout.phases[4]).toEqual({ kind: 'rest', seconds: 30, ungrouped: true });
+  });
+
+  it("should move a set down", () => {
+    const workout = {
+      id: 'w1',
+      title: 'T',
+      phases: [
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'A', seconds: 10 }] },
+        { kind: 'set', series: 2, phases: [{ kind: 'exercise', title: 'B', seconds: 20 }] },
+      ],
+    };
+    getWorkout.mockReturnValue(workout);
+
+    const el = createCustomizePage({ 'workout-id': 'w1' });
+    const firstSet = el.querySelectorAll('.phase-row--set')[0];
+    firstSet.querySelector('.phase-menu-button').click();
+    firstSet.querySelector('.phase-menu-item--move-down').click();
+
+    // Expect the whole set (marker + children) to be moved down
+    expect(el.workout.phases[0]).toEqual({ kind: 'set', series: 2 });
+    expect(el.workout.phases[1]).toEqual({ kind: 'exercise', title: 'B', seconds: 20 });
+    expect(el.workout.phases[2]).toEqual({ kind: 'set', series: 1 });
+    expect(el.workout.phases[3]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+  });
+
+  it("should not move the first set up", () => {
+    const workout = {
+      id: 'w1',
+      title: 'T',
+      phases: [
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'A', seconds: 10 }] },
+        { kind: 'set', series: 2, phases: [{ kind: 'exercise', title: 'B', seconds: 20 }] },
+      ],
+    };
+    getWorkout.mockReturnValue(workout);
+
+    const el = createCustomizePage({ 'workout-id': 'w1' });
+    const firstSet = el.querySelectorAll('.phase-row--set')[0];
+    firstSet.querySelector('.phase-menu-button').click();
+    firstSet.querySelector('.phase-menu-item--move-up').click();
+
+    // The first set should remain the same when trying to move it up
+    expect(el.workout.phases[0]).toEqual({ kind: 'set', series: 1 });
+    expect(el.workout.phases[1]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+  });
+
+  it("should not move the last set down", () => {
+    const workout = {
+      id: 'w1',
+      title: 'T',
+      phases: [
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'A', seconds: 10 }] },
+        { kind: 'set', series: 2, phases: [{ kind: 'exercise', title: 'B', seconds: 20 }] },
+      ],
+    };
+    getWorkout.mockReturnValue(workout);
+
+    const el = createCustomizePage({ 'workout-id': 'w1' });
+    const lastSet = el.querySelectorAll('.phase-row--set')[1];
+    lastSet.querySelector('.phase-menu-button').click();
+    lastSet.querySelector('.phase-menu-item--move-down').click();
+
+    // The last set is already last; moving it down should be a no-op
+    expect(el.workout.phases[2]).toEqual({ kind: 'set', series: 2 });
+    expect(el.workout.phases[3]).toEqual({ kind: 'exercise', title: 'B', seconds: 20 });
+  });
+
+  it("should delete a set along with its children", () => {
+    const workout = {
+      id: 'w1',
+      title: 'T',
+      phases: [
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'A', seconds: 10 }] },
+        { kind: 'set', series: 2, phases: [{ kind: 'exercise', title: 'B', seconds: 20 }] },
+      ],
+    };
+    getWorkout.mockReturnValue(workout);
+
+    const el = createCustomizePage({ 'workout-id': 'w1' });
+    const secondSet = el.querySelectorAll('.phase-row--set')[1];
+    secondSet.querySelector('.phase-menu-button').click();
+    secondSet.querySelector('.phase-menu-item--delete').click();
+
+    // Expect deleting a set to remove the set and its children
+    expect(el.querySelectorAll('.phase-row--set').length).toBe(1);
+    expect(el.querySelectorAll('.card--inner-group').length).toBe(1);
+    expect(el.workout.phases).toEqual([
+      { kind: 'set', series: 1 },
+      { kind: 'exercise', title: 'A', seconds: 10 },
+    ]);
+  });
+
   it('should render a saved set with exercise, rest, exercise and rest as one set on the customize page', () => {
     const workout = {
       id: 'w_saved',

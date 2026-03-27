@@ -510,11 +510,33 @@ class CustomizePage extends HTMLElement {
     }, 'phase-menu-item--duplicate');
 
     addItem('Move up', arrowUpIcon, () => {
-      if (index <= 0) return;
       const phases = this.workout.phases;
 
-      const { start } = this.#getSetBoundsForIndex(index);
-      const minIndex = start >= 0 ? start + 1 : 0;
+      // If this is a set marker, move the whole set block up one set.
+      if (phase.kind === 'set' || phase.kind === 'group') {
+        const { start, endExclusive } = this.#getSetBlockBounds(index);
+        // find previous set marker
+        let prevStart = -1;
+        for (let i = start - 1; i >= 0; i -= 1) {
+          if (phases[i].kind === 'set' || phases[i].kind === 'group') {
+            prevStart = i;
+            break;
+          }
+        }
+        if (prevStart < 0) return;
+        // extract current block
+        const block = phases.splice(start, endExclusive - start);
+        // insert before previous block start
+        phases.splice(prevStart, 0, ...block);
+        this.#save();
+        this.#renderPhases();
+        return;
+      }
+
+      // For non-set phases, preserve previous behavior (move single element within allowed bounds)
+      if (index <= 0) return;
+      const { start: setStart } = this.#getSetBoundsForIndex(index);
+      const minIndex = setStart >= 0 ? setStart + 1 : 0;
       if (index <= minIndex) return;
 
       const [p] = phases.splice(index, 1);
@@ -525,10 +547,33 @@ class CustomizePage extends HTMLElement {
 
     addItem('Move down', arrowDownIcon, () => {
       const phases = this.workout.phases;
-      if (index >= phases.length - 1) return;
 
-      const { endExclusive } = this.#getSetBoundsForIndex(index);
-      const maxIndex = endExclusive - 1;
+      // If this is a set marker, move the whole set block down one set.
+      if (phase.kind === 'set' || phase.kind === 'group') {
+        const { start, endExclusive } = this.#getSetBlockBounds(index);
+        // find next set marker
+        let nextStart = -1;
+        for (let i = endExclusive; i < phases.length; i += 1) {
+          if (phases[i].kind === 'set' || phases[i].kind === 'group') {
+            nextStart = i;
+            break;
+          }
+        }
+        if (nextStart < 0) return;
+        // get next block
+        const { start: ns, endExclusive: nEnd } = this.#getSetBlockBounds(nextStart);
+        const nextBlock = phases.splice(ns, nEnd - ns);
+        // insert next block before current start (which is unchanged because nextStart > start and we've removed nextBlock)
+        phases.splice(start, 0, ...nextBlock);
+        this.#save();
+        this.#renderPhases();
+        return;
+      }
+
+      // For non-set phases, preserve previous behavior (move single element within allowed bounds)
+      if (index >= phases.length - 1) return;
+      const { endExclusive: setEnd } = this.#getSetBoundsForIndex(index);
+      const maxIndex = setEnd - 1;
       if (index >= maxIndex) return;
 
       const [p] = phases.splice(index, 1);
@@ -538,7 +583,13 @@ class CustomizePage extends HTMLElement {
     }, 'phase-menu-item--move-down');
 
     addItem('Delete', trashIcon, () => {
-      this.workout.phases.splice(index, 1);
+      const phases = this.workout.phases;
+      if (phase.kind === 'set' || phase.kind === 'group') {
+        const { start, endExclusive } = this.#getSetBlockBounds(index);
+        phases.splice(start, endExclusive - start);
+      } else {
+        phases.splice(index, 1);
+      }
       this.#save();
       this.#renderPhases();
     }, 'phase-menu-item--delete');
@@ -647,6 +698,32 @@ Total: ${timeText}`;
 
     let endExclusive = phases.length;
     for (let i = index + 1; i < phases.length; i += 1) {
+      if (phases[i].kind === 'set' || phases[i].kind === 'group' || phases[i].ungrouped) {
+        endExclusive = i;
+        break;
+      }
+    }
+
+    return { start, endExclusive };
+  }
+
+  #getSetBlockBounds(index) {
+    const phases = this.workout?.phases || [];
+    if (index < 0 || index >= phases.length) return { start: -1, endExclusive: phases.length };
+    // If the index is inside a set (child), find its set marker first.
+    let start = index;
+    if (phases[start] && phases[start].kind !== 'set' && phases[start].kind !== 'group') {
+      for (let i = start; i >= 0; i -= 1) {
+        if (phases[i].kind === 'set' || phases[i].kind === 'group') {
+          start = i;
+          break;
+        }
+      }
+    }
+
+    // Now find the endExclusive for this set block (next set/group or ungrouped marker)
+    let endExclusive = phases.length;
+    for (let i = start + 1; i < phases.length; i += 1) {
       if (phases[i].kind === 'set' || phases[i].kind === 'group' || phases[i].ungrouped) {
         endExclusive = i;
         break;

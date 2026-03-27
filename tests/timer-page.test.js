@@ -86,7 +86,7 @@ describe('timer page', () => {
       id: 'w1',
       title: 'T',
       phases: [
-        { kind: 'exercise', title: 'Work', seconds: 10 },
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work', seconds: 10 }] },
         { kind: 'rest', seconds: 20 },
       ],
     };
@@ -112,7 +112,7 @@ describe('timer page', () => {
     const workout = {
       id: 'w1',
       title: 'T',
-      phases: [{ kind: 'exercise', title: 'Work', seconds: 10 }],
+      phases: [{ kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work', seconds: 10 }] }],
     };
     getWorkout.mockReturnValue(workout);
 
@@ -127,7 +127,7 @@ describe('timer page', () => {
     const workout = {
       id: 'w1',
       title: 'T',
-      phases: [{ kind: 'exercise', title: 'Work', seconds: 10 }],
+      phases: [{ kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work', seconds: 10 }] }],
     };
     getWorkout.mockReturnValue(workout);
 
@@ -159,7 +159,7 @@ describe('timer page', () => {
     const workout = {
       id: 'w1',
       title: 'T',
-      phases: [{ kind: 'exercise', title: 'Work', seconds: 10 }],
+      phases: [{ kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work', seconds: 10 }] }],
     };
     getWorkout.mockReturnValue(workout);
 
@@ -172,7 +172,7 @@ describe('timer page', () => {
     const workout = {
       id: 'w1',
       title: 'T',
-      phases: [{ kind: 'exercise', title: 'Work', seconds: 10 }],
+      phases: [{ kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work', seconds: 10 }] }],
     };
     getWorkout.mockReturnValue(workout);
 
@@ -190,8 +190,7 @@ describe('timer page', () => {
       id: 'w1',
       title: 'T',
       phases: [
-        { kind: 'exercise', title: 'Work A', seconds: 10 },
-        { kind: 'rest', seconds: 5 },
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work A', seconds: 10 }, { kind: 'rest', seconds: 5 }] },
       ],
     };
     getWorkout.mockReturnValue(workout);
@@ -215,7 +214,7 @@ describe('timer page', () => {
       id: 'w1',
       title: 'T',
       phases: [
-        { kind: 'exercise', title: 'Work A', seconds: 10 },
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work A', seconds: 10 }] },
       ],
     };
     getWorkout.mockReturnValue(workout);
@@ -332,7 +331,7 @@ describe('timer page', () => {
       id: 'w1',
       title: 'T',
       phases: [
-        { kind: 'exercise', title: 'Work', seconds: 1 },
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work', seconds: 1 }] },
         { kind: 'rest', seconds: 20 },
       ],
     };

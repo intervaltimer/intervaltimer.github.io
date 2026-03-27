@@ -5,7 +5,7 @@ const workout = {
   id: 'w1',
   title: 'Test',
   phases: [
-    { kind: 'exercise', title: 'Work 1', seconds: 10 },
+    { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work 1', seconds: 10 }] },
     { kind: 'rest', seconds: 20 },
   ],
 };
@@ -32,9 +32,7 @@ describe('TimerEngine', () => {
       id: 'w1b',
       title: 'TestB',
       phases: [
-        { kind: 'exercise', title: 'Work 1', seconds: 10 },
-        { kind: 'rest', seconds: 5 },
-        { kind: 'exercise', title: 'Work 2', seconds: 8 },
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work 1', seconds: 10 }, { kind: 'rest', seconds: 5 }, { kind: 'exercise', title: 'Work 2', seconds: 8 }] },
       ],
     });
     // finish prepare
@@ -50,7 +48,7 @@ describe('TimerEngine', () => {
       id: 'w3',
       title: 'Test3',
       phases: [
-        { kind: 'exercise', title: 'Work 1', seconds: 10 },
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work 1', seconds: 10 }] },
         { kind: 'rest', seconds: 20 },
       ],
     });
@@ -68,9 +66,7 @@ describe('TimerEngine', () => {
       id: 'w2',
       title: 'Test2',
       phases: [
-        { kind: 'exercise', title: 'Work 1', seconds: 10 },
-        { kind: 'rest', seconds: 10 },
-        { kind: 'exercise', title: 'Work 2', seconds: 8 },
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work 1', seconds: 10 }, { kind: 'rest', seconds: 10 }, { kind: 'exercise', title: 'Work 2', seconds: 8 }] },
       ],
     };
     const onSpeak = vi.fn();
@@ -133,7 +129,7 @@ describe('TimerEngine', () => {
       id: 'w4',
       title: 'Test4',
       phases: [
-        { kind: 'exercise', title: 'Work 1', seconds: 1 },
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work 1', seconds: 1 }] },
       ],
     });
 
@@ -150,7 +146,7 @@ describe('TimerEngine', () => {
       id: 'w5',
       title: 'Test5',
       phases: [
-        { kind: 'exercise', title: 'Work 1', seconds: 1 },
+        { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'Work 1', seconds: 1 }] },
       ],
     }, { onSpeak });
 
