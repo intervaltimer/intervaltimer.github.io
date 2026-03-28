@@ -238,6 +238,54 @@ describe('customize page', () => {
       expect(el.workout.phases[0]).toEqual({ kind: 'rest', seconds: 10, ungrouped: true });
       expect(el.workout.phases[1]).toEqual({ kind: 'rest', seconds: 5, ungrouped: true });
     });
+
+    it('should move a rest before a set when it is after ', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'A', seconds: 10 }] },
+          { kind: 'rest', seconds: 10, ungrouped: true },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const topCards = el.querySelectorAll('.card:not(.card--inner-group)');
+      const standaloneCard = topCards[1];
+      standaloneCard.querySelector('.phase-menu-button').click();
+      standaloneCard.querySelector('.phase-menu-item--move-up').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'rest', seconds: 10, ungrouped: true });
+      expect(el.workout.phases[1]).toEqual({ kind: 'set', series: 1 });
+      expect(el.workout.phases[2]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+      expect(el.querySelectorAll('.phase-row--set').length).toBe(1);
+      expect(el.querySelectorAll('.card--inner-group').length).toBe(1);
+    });
+
+    it('should move a rest after a set when it is before', () => {
+      const workout = {
+        id: 'w1',
+        title: 'T',
+        phases: [
+          { kind: 'rest', seconds: 10, ungrouped: true },
+          { kind: 'set', series: 1, phases: [{ kind: 'exercise', title: 'A', seconds: 10 }] },
+        ],
+      };
+      getWorkout.mockReturnValue(workout);
+
+      const el = createCustomizePage({ 'workout-id': 'w1' });
+      const topCards = el.querySelectorAll('.card:not(.card--inner-group)');
+      const standaloneCard = topCards[0];
+      standaloneCard.querySelector('.phase-menu-button').click();
+      standaloneCard.querySelector('.phase-menu-item--move-down').click();
+
+      expect(el.workout.phases[0]).toEqual({ kind: 'set', series: 1 });
+      expect(el.workout.phases[1]).toEqual({ kind: 'exercise', title: 'A', seconds: 10 });
+      expect(el.workout.phases[2]).toEqual({ kind: 'rest', seconds: 10, ungrouped: true });
+      expect(el.querySelectorAll('.phase-row--set').length).toBe(1);
+      expect(el.querySelectorAll('.card--inner-group').length).toBe(1);
+    });
   });
 
   describe('set entries', () => {

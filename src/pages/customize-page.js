@@ -539,8 +539,22 @@ class CustomizePage extends HTMLElement {
       const minIndex = setStart >= 0 ? setStart + 1 : 0;
       if (index <= minIndex) return;
 
-      const [p] = phases.splice(index, 1);
-      phases.splice(index - 1, 0, p);
+      // If there is a previous set/group block, move this standalone phase before that whole block.
+      let prevSetStart = -1;
+      for (let i = index - 1; i >= 0; i -= 1) {
+        if (phases[i].kind === 'set' || phases[i].kind === 'group') {
+          prevSetStart = i;
+          break;
+        }
+      }
+
+      if (prevSetStart >= 0 && phases[index] && phases[index].ungrouped) {
+        const [p] = phases.splice(index, 1);
+        phases.splice(prevSetStart, 0, p);
+      } else {
+        const [p] = phases.splice(index, 1);
+        phases.splice(index - 1, 0, p);
+      }
       this.#save();
       this.#renderPhases();
     }, 'phase-menu-item--move-up');
@@ -576,8 +590,25 @@ class CustomizePage extends HTMLElement {
       const maxIndex = setEnd - 1;
       if (index >= maxIndex) return;
 
-      const [p] = phases.splice(index, 1);
-      phases.splice(index + 1, 0, p);
+      // If there is a next set/group block, move this standalone phase after that whole block.
+      let nextSetStart = -1;
+      for (let i = index + 1; i < phases.length; i += 1) {
+        if (phases[i].kind === 'set' || phases[i].kind === 'group') {
+          nextSetStart = i;
+          break;
+        }
+      }
+
+      if (nextSetStart >= 0 && phases[index] && phases[index].ungrouped) {
+        const { start: ns, endExclusive: nEnd } = this.#getSetBlockBounds(nextSetStart);
+        const [p] = phases.splice(index, 1);
+        // After removing an earlier element the target endExclusive shifts left by 1.
+        const insertAt = nEnd - 1;
+        phases.splice(insertAt, 0, p);
+      } else {
+        const [p] = phases.splice(index, 1);
+        phases.splice(index + 1, 0, p);
+      }
       this.#save();
       this.#renderPhases();
     }, 'phase-menu-item--move-down');
